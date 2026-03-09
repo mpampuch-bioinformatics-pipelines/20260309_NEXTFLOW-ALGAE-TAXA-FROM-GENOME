@@ -46,9 +46,10 @@ workflow NFCORE_ALGAE_TAXA {
     gff         = ALGAE_TAXA.out.gff
     bed         = ALGAE_TAXA.out.bed
     fasta       = ALGAE_TAXA.out.fasta
-    its         = ALGAE_TAXA.out.its
-    taxonomy    = ALGAE_TAXA.out.taxonomy
-    tax_summary = ALGAE_TAXA.out.tax_summary
+    its1        = ALGAE_TAXA.out.its1
+    its2        = ALGAE_TAXA.out.its2
+    ssu         = ALGAE_TAXA.out.ssu
+    lsu         = ALGAE_TAXA.out.lsu
     versions    = ALGAE_TAXA.out.versions
 }
 

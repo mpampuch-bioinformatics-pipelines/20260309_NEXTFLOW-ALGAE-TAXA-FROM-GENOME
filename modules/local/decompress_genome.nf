@@ -18,7 +18,6 @@ process DECOMPRESS_GENOME {
     task.ext.when == null || task.ext.when
 
     script:
-    def prefix = task.ext.prefix ?: "${meta.id}"
     def output_name = genome.name.replaceAll(/\.gz$/, '')
     """
     gunzip -c ${genome} > ${output_name}
@@ -30,7 +29,6 @@ process DECOMPRESS_GENOME {
     """
 
     stub:
-    def prefix = task.ext.prefix ?: "${meta.id}"
     def output_name = genome.name.replaceAll(/\.gz$/, '')
     """
     touch ${output_name}

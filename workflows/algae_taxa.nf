@@ -32,7 +32,7 @@ workflow ALGAE_TAXA {
     // MODULE: Decompress genome files if compressed
     //
     ch_input
-        .branch { meta, genome ->
+        .branch { _meta, genome ->
             compressed: genome.name.endsWith('.gz')
             decompressed: true
         }
@@ -82,35 +82,29 @@ workflow ALGAE_TAXA {
     // MODULE: Run ITSx for ITS extraction (only for eukaryotes)
     //
     if (params.organism_type == 'eukaryotic') {
-        ITSX(
-            ch_genome,
-            params.itsx_organism_code
-        )
-        ch_versions = ch_versions.mix(ITSX.out.versions.first())
+        // Add organism_type to meta for ITSx
+        ch_genome_with_organism = ch_genome.map { meta, genome ->
+            def new_meta = meta + [organism_type: params.itsx_organism_code]
+            [new_meta, genome]
+        }
         
-        // Combine rRNA and ITS sequences for classification
-        ch_sequences = BEDTOOLS_GETFASTA.out.fasta
-            .join(ITSX.out.its_fasta)
-    } else {
-        ch_sequences = BEDTOOLS_GETFASTA.out.fasta
+        ITSX(ch_genome_with_organism)
+        ch_versions = ch_versions.mix(ITSX.out.versions.first())
     }
 
     //
-    // MODULE: Classify sequences with mothur
+    // TEMPORARY PLACEHOLDER: Classification module needs to be implemented
+    // This would classify rRNA/ITS sequences using appropriate databases
     //
-    MOTHUR_CLASSIFY(
-        ch_sequences,
-        params.organism_type
-    )
-    ch_versions = ch_versions.mix(MOTHUR_CLASSIFY.out.versions.first())
 
     emit:
     gff          = COMBINE_GFF.out.gff         // channel: [ val(meta), path(gff) ]
     bed          = EXTRACT_BED.out.bed         // channel: [ val(meta), path(bed) ]
     fasta        = BEDTOOLS_GETFASTA.out.fasta // channel: [ val(meta), path(fastas) ]
-    its          = params.organism_type == 'eukaryotic' ? ITSX.out.its_fasta : channel.empty()
-    taxonomy     = MOTHUR_CLASSIFY.out.taxonomy     // channel: [ val(meta), path(taxonomy) ]
-    tax_summary  = MOTHUR_CLASSIFY.out.tax_summary  // channel: [ val(meta), path(summary) ]
+    its1         = params.organism_type == 'eukaryotic' ? ITSX.out.its1 : channel.empty()
+    its2         = params.organism_type == 'eukaryotic' ? ITSX.out.its2 : channel.empty()
+    ssu          = params.organism_type == 'eukaryotic' ? ITSX.out.ssu : channel.empty()
+    lsu          = params.organism_type == 'eukaryotic' ? ITSX.out.lsu : channel.empty()
     versions     = ch_versions                      // channel: [ path(versions) ]
 }
 

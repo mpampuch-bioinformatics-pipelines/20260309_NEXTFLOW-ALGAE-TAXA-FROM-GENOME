@@ -18,7 +18,7 @@ include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_pipe
 workflow PIPELINE {
 
     take:
-    ch_samplesheet // channel: samplesheet read in from --input
+    _ch_samplesheet // channel: samplesheet read in from --input
     main:
 
     ch_versions = Channel.empty()
