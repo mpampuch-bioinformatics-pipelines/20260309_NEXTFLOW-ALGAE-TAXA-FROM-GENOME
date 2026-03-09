@@ -4,8 +4,8 @@ process DECOMPRESS_GENOME {
 
     conda "conda-forge::gzip=1.12"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/gzip:1.12' :
-        'biocontainers/gzip:1.12' }"
+        'https://community-cr-prod.seqera.io/docker/registry/v2/blobs/sha256/f9/f9bfad58c74343625d23685a5ea7006c3c154eec7ad85584b8474d7bd8ec956c/data' :
+        'community.wave.seqera.io/library/gzip:1.14--19aaa2c84c85ddbc' }"
 
     input:
     tuple val(meta), path(genome)

@@ -4,7 +4,7 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { DECOMPRESS_GENOME       } from '../modules/local/decompress_genome'
+include { DECOMPRESS_GENOME       } from '../modules/local/decompress_genome/decompress_genome'
 include { BARRNAP                 } from '../modules/local/barrnap'
 include { COMBINE_GFF             } from '../modules/local/combine_gff'
 include { EXTRACT_BED             } from '../modules/local/extract_bed'
