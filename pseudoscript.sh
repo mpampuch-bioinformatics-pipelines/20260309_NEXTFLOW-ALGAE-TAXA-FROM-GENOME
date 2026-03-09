@@ -9,6 +9,8 @@
 #
 ###########################################################
 
+# Step 0: If file is *.fa.gz, *.fna.gz, *.fasta.gz, decompress it with gunzip
+
 # Step 1: Use barrnap version 0.9 to extract the rRNA sequences from the genomes
 barrnap --kingdom bac --threads 32 KAUST067_purged.fa > KAUST067_purged.bac.rRNA.gff
 barrnap --kingdom arc --threads 32 KAUST067_purged.fa > KAUST067_purged.arc.rRNA.gff

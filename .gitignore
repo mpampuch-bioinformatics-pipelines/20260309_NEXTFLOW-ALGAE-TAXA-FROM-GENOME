@@ -9,8 +9,8 @@
 *.fq.gz
 #*.fasta
 #*.fa
-*.fasta.gz
-*.fa.gz
+#*.fasta.gz
+#*.fa.gz
 *.bam
 *.bam.bai
 *.sam
