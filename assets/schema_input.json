@@ -1,8 +1,8 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://raw.githubusercontent.com/nf-core/pipeline/master/assets/schema_input.json",
-    "title": "nf-core/pipeline pipeline - params.input schema",
-    "description": "Schema for the file provided with params.input",
+    "$id": "https://raw.githubusercontent.com/mpampuch-bioinformatics-pipelines/20260309_NEXTFLOW-ALGAE-TAXA-FROM-GENOME/master/assets/schema_input.json",
+    "title": "Algae Taxa from Genome Pipeline - Input Schema",
+    "description": "Schema for the sample sheet used by the algae taxa pipeline",
     "type": "array",
     "items": {
         "type": "object",
@@ -13,21 +13,13 @@
                 "errorMessage": "Sample name must be provided and cannot contain spaces",
                 "meta": ["id"]
             },
-            "fastq_1": {
+            "genome": {
                 "type": "string",
                 "format": "file-path",
-                "exists": true,
-                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.f(ast)?q\\.gz$",
-                "errorMessage": "FastQ file for reads 1 must be provided, cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
-            },
-            "fastq_2": {
-                "type": "string",
-                "format": "file-path",
-                "exists": true,
-                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.f(ast)?q\\.gz$",
-                "errorMessage": "FastQ file for reads 2 cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
+                "pattern": "^\\S+\\.(fa|fasta|fna|fa\\.gz|fasta\\.gz|fna\\.gz)$",
+                "errorMessage": "Genome file must be provided and must have extension: .fa, .fasta, .fna, .fa.gz, .fasta.gz, or .fna.gz"
             }
         },
-        "required": ["sample", "fastq_1"]
+        "required": ["sample", "genome"]
     }
 }

@@ -1,9 +1,9 @@
 #!/usr/bin/env nextflow
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    nf-core/pipeline
+    Algae Taxa from Genome Pipeline
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    Github : https://github.com/nf-core/pipeline
+    Github : https://github.com/mpampuch-bioinformatics-pipelines/20260309_NEXTFLOW-ALGAE-TAXA-FROM-GENOME
 ----------------------------------------------------------------------------------------
 */
 
@@ -13,9 +13,12 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { PIPELINE  } from './workflows/pipeline'
-include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_nfcore_pipeline_pipeline'
-include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_pipeline_pipeline'
+include { ALGAE_TAXA              } from './workflows/algae_taxa'
+include { paramsSummaryLog        } from 'plugin/nf-schema'
+include { validateParameters      } from 'plugin/nf-schema'
+include { paramsSummaryMap        } from 'plugin/nf-schema'
+include { samplesheetToList       } from 'plugin/nf-schema'
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     NAMED WORKFLOWS FOR PIPELINE
@@ -23,24 +26,32 @@ include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_pipe
 */
 
 //
-// WORKFLOW: Run main analysis pipeline depending on type of input
+// WORKFLOW: Run main analysis pipeline
 //
-workflow NFCORE_PIPELINE {
+workflow NFCORE_ALGAE_TAXA {
 
     take:
-    samplesheet // channel: samplesheet read in from --input
+    ch_samplesheet // channel: samplesheet read in from --input
 
     main:
 
     //
-    // WORKFLOW: Run pipeline
+    // WORKFLOW: Run algae taxa analysis
     //
-    PIPELINE (
-        samplesheet
+    ALGAE_TAXA (
+        ch_samplesheet
     )
+
     emit:
-    multiqc_report = PIPELINE.out.multiqc_report // channel: /path/to/multiqc_report.html
+    gff         = ALGAE_TAXA.out.gff
+    bed         = ALGAE_TAXA.out.bed
+    fasta       = ALGAE_TAXA.out.fasta
+    its         = ALGAE_TAXA.out.its
+    taxonomy    = ALGAE_TAXA.out.taxonomy
+    tax_summary = ALGAE_TAXA.out.tax_summary
+    versions    = ALGAE_TAXA.out.versions
 }
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
@@ -50,34 +61,27 @@ workflow NFCORE_PIPELINE {
 workflow {
 
     main:
+
     //
-    // SUBWORKFLOW: Run initialisation tasks
+    // Validate parameters
     //
-    PIPELINE_INITIALISATION (
-        params.version,
-        params.validate_params,
-        params.monochrome_logs,
-        args,
-        params.outdir,
-        params.input
-    )
+    validateParameters()
+
+    //
+    // Print parameter summary
+    //
+    log.info paramsSummaryLog(workflow)
+
+    //
+    // Create input channel from samplesheet
+    //
+    ch_input = channel.fromList(samplesheetToList(params.input, "assets/schema_input.json"))
 
     //
     // WORKFLOW: Run main workflow
     //
-    NFCORE_PIPELINE (
-        PIPELINE_INITIALISATION.out.samplesheet
-    )
-    //
-    // SUBWORKFLOW: Run completion tasks
-    //
-    PIPELINE_COMPLETION (
-        params.email,
-        params.email_on_fail,
-        params.plaintext_email,
-        params.outdir,
-        params.monochrome_logs,
-        NFCORE_PIPELINE.out.multiqc_report
+    NFCORE_ALGAE_TAXA (
+        ch_input
     )
 }
 
