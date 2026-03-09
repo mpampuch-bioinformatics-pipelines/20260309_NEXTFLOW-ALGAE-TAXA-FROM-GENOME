@@ -1,0 +1,226 @@
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║                    ALGAE TAXA FROM GENOME PIPELINE WORKFLOW                      ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                  INPUT STAGE                                    │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+                            📄 samplesheet.csv
+                        (sample,genome path pairs)
+                                    │
+                                    ▼
+                        ┌──────────────────────┐
+                        │ PARSE SAMPLESHEET    │
+                        │  (CSV validation)    │
+                        └──────────────────────┘
+                                    │
+                                    ▼
+                    ┌───────────────────────────────┐
+                    │    Genome File (.fa/.gz)      │
+                    └───────────────────────────────┘
+                                    │
+                                    ▼
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                            DECOMPRESSION STAGE                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+                        ┌──────────────────────┐
+                        │  DECOMPRESS_GENOME   │
+                        │   (gunzip if .gz)    │
+                        └──────────────────────┘
+                                    │
+                                    ▼
+                        Uncompressed Genome.fa
+                                    │
+                                    ▼
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           rRNA PREDICTION STAGE                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+                    ┌────────────────────────────┐
+                    │  BARRNAP (4x parallel)     │
+                    ├────────────────────────────┤
+                    │  • Bacterial    (.bac.gff) │
+                    │  • Archaeal     (.arc.gff) │
+                    │  • Eukaryotic   (.euk.gff) │
+                    │  • Mitochondrial(.mito.gff)│
+                    └────────────────────────────┘
+                                    │
+                                    ▼
+                        ┌──────────────────────┐
+                        │   COMBINE_GFF        │
+                        │  (merge all kingdoms)│
+                        └──────────────────────┘
+                                    │
+                                    ▼
+                        Combined rRNA annotations
+                          (.all.rRNA.gff)
+                                    │
+                                    ▼
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        COORDINATE EXTRACTION STAGE                              │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+                        ┌──────────────────────┐
+                        │   EXTRACT_BED        │
+                        │  (GFF to BED by type)│
+                        └──────────────────────┘
+                                    │
+                    ┌───────────────┼───────────────┐
+                    │               │               │
+                    ▼               ▼               ▼
+              5s.bed  5_8s.bed  12s.bed  16s.bed  18s.bed  23s.bed  28s.bed
+                    └───────────────┬───────────────┘
+                                    │
+                                    ▼
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        SEQUENCE EXTRACTION STAGE                                │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+                        ┌──────────────────────┐
+                        │ BEDTOOLS_GETFASTA    │
+                        │ (extract sequences)  │
+                        └──────────────────────┘
+                                    │
+                    ┌───────────────┼───────────────┐
+                    │               │               │
+                    ▼               ▼               ▼
+              5s.fa  5_8s.fa  12s.fa  16s.fa  18s.fa  23s.fa  28s.fa
+                    │
+                    └──────────────► Used for classification
+                                    │
+                                    ▼
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           ITS EXTRACTION STAGE                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+                        ┌──────────────────────┐
+                        │      ITSX            │
+                        │ (organism-specific)  │
+                        └──────────────────────┘
+                                    │
+                    ┌───────────────┼───────────────┐
+                    │               │               │
+                    ▼               ▼               ▼
+                ITS1.fa        ITS2.fa        SSU.fa         LSU.fa
+                    │               │               │               │
+                    └───────────────┴───────────────┴───────────────┘
+                                    │
+                                    ▼
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        TAXONOMIC CLASSIFICATION STAGE                           │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+                        ┌──────────────────────────────────┐
+                        │    MOTHUR_CLASSIFY (parallel)    │
+                        │                                  │
+                        │  18S vs:                         │
+                        │    • EUKARYOME SSU               │
+                        │    • PR2 SSU                     │
+                        │    • EUKARYOME longread          │
+                        │                                  │
+                        │  28S vs:                         │
+                        │    • EUKARYOME LSU               │
+                        │    • EUKARYOME longread          │
+                        │                                  │
+                        │  5.8S vs:                        │
+                        │    • EUKARYOME ITS               │
+                        │    • EUKARYOME longread          │
+                        │                                  │
+                        │  ITS1 vs:                        │
+                        │    • EUKARYOME ITS               │
+                        │    • EUKARYOME longread          │
+                        │                                  │
+                        │  ITS2 vs:                        │
+                        │    • EUKARYOME ITS               │
+                        │    • EUKARYOME longread          │
+                        └──────────────────────────────────┘
+                                    │
+                                    ▼
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              OUTPUT STAGE                                       │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+                    results/{sample}/
+                    ├── barrnap/
+                    │   ├── {sample}.bac.rRNA.gff
+                    │   ├── {sample}.arc.rRNA.gff
+                    │   ├── {sample}.euk.rRNA.gff
+                    │   └── {sample}.mito.rRNA.gff
+                    │
+                    ├── combined_gff/
+                    │   └── {sample}.all.rRNA.gff
+                    │
+                    ├── bed_coordinates/
+                    │   ├── {sample}.5s.bed
+                    │   ├── {sample}.5_8s.bed
+                    │   ├── {sample}.12s.bed
+                    │   ├── {sample}.16s.bed
+                    │   ├── {sample}.18s.bed
+                    │   ├── {sample}.23s.bed
+                    │   └── {sample}.28s.bed
+                    │
+                    ├── extracted_sequences/
+                    │   ├── {sample}.5s.fa
+                    │   ├── {sample}.5_8s.fa
+                    │   ├── {sample}.12s.fa
+                    │   ├── {sample}.16s.fa
+                    │   ├── {sample}.18s.fa
+                    │   ├── {sample}.23s.fa
+                    │   └── {sample}.28s.fa
+                    │
+                    ├── itsx/
+                    │   ├── {sample}.ITS1.fasta
+                    │   ├── {sample}.ITS2.fasta
+                    │   ├── {sample}.SSU.fasta
+                    │   ├── {sample}.LSU.fasta
+                    │   └── {sample}.summary.txt
+                    │
+                    └── classifications/
+                        ├── {sample}.18S.DB_EUKARYOME_SSU.taxonomy
+                        ├── {sample}.18S.DB_EUKARYOME_SSU.tax.summary
+                        ├── {sample}.18S.DB_PR2_SSU.taxonomy
+                        ├── {sample}.18S.DB_PR2_SSU.tax.summary
+                        ├── {sample}.18S.DB_EUKARYOME_LONGREAD.taxonomy
+                        ├── {sample}.18S.DB_EUKARYOME_LONGREAD.tax.summary
+                        ├── {sample}.28S.DB_EUKARYOME_LSU.taxonomy
+                        ├── {sample}.28S.DB_EUKARYOME_LSU.tax.summary
+                        ├── {sample}.28S.DB_EUKARYOME_LONGREAD.taxonomy
+                        ├── {sample}.28S.DB_EUKARYOME_LONGREAD.tax.summary
+                        ├── {sample}.5_8S.DB_EUKARYOME_ITS.taxonomy
+                        ├── {sample}.5_8S.DB_EUKARYOME_ITS.tax.summary
+                        ├── {sample}.5_8S.DB_EUKARYOME_LONGREAD.taxonomy
+                        ├── {sample}.5_8S.DB_EUKARYOME_LONGREAD.tax.summary
+                        ├── {sample}.ITS1.DB_EUKARYOME_ITS.taxonomy
+                        ├── {sample}.ITS1.DB_EUKARYOME_ITS.tax.summary
+                        ├── {sample}.ITS1.DB_EUKARYOME_LONGREAD.taxonomy
+                        ├── {sample}.ITS1.DB_EUKARYOME_LONGREAD.tax.summary
+                        ├── {sample}.ITS2.DB_EUKARYOME_ITS.taxonomy
+                        ├── {sample}.ITS2.DB_EUKARYOME_ITS.tax.summary
+                        ├── {sample}.ITS2.DB_EUKARYOME_LONGREAD.taxonomy
+                        └── {sample}.ITS2.DB_EUKARYOME_LONGREAD.tax.summary
+
+╔══════════════════════════════════════════════════════════════════════════════════╗
+║                                KEY FEATURES                                      ║
+╠══════════════════════════════════════════════════════════════════════════════════╣
+║  ✓ Multi-kingdom rRNA detection (bacterial, archaeal, eukaryotic, mitochondrial)║
+║  ✓ Parallel processing of all samples                                           ║
+║  ✓ 7 rRNA types detected: 5S, 5.8S, 12S, 16S, 18S, 23S, 28S                     ║
+║  ✓ ITS1/ITS2 extraction with organism-specific parameters                       ║
+║  ✓ Up to 12 taxonomic classifications per sample                                ║
+║  ✓ 5 reference databases: EUKARYOME (SSU, LSU, ITS, longread), PR2 (SSU)        ║
+║  ✓ Configurable for different algal groups (green, red, brown, diatoms, etc.)   ║
+║  ✓ Container-based for reproducibility (Docker/Singularity/Conda)               ║
+║  ✓ HPC-ready with scheduler support                                             ║
+║  ✓ Comprehensive error handling and resource management                         ║
+╚══════════════════════════════════════════════════════════════════════════════════╝
+
+                            🎉 Pipeline Status: COMPLETE ✅

@@ -43,14 +43,15 @@ workflow NFCORE_ALGAE_TAXA {
     )
 
     emit:
-    gff         = ALGAE_TAXA.out.gff
-    bed         = ALGAE_TAXA.out.bed
-    fasta       = ALGAE_TAXA.out.fasta
-    its1        = ALGAE_TAXA.out.its1
-    its2        = ALGAE_TAXA.out.its2
-    ssu         = ALGAE_TAXA.out.ssu
-    lsu         = ALGAE_TAXA.out.lsu
-    versions    = ALGAE_TAXA.out.versions
+    gff              = ALGAE_TAXA.out.gff
+    bed              = ALGAE_TAXA.out.bed
+    fasta            = ALGAE_TAXA.out.fasta
+    its1             = ALGAE_TAXA.out.its1
+    its2             = ALGAE_TAXA.out.its2
+    ssu              = ALGAE_TAXA.out.ssu
+    lsu              = ALGAE_TAXA.out.lsu
+    classifications  = ALGAE_TAXA.out.classifications
+    versions         = ALGAE_TAXA.out.versions
 }
 
 /*
