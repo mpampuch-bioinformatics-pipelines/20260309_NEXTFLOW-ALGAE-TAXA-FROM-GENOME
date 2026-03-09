@@ -1,53 +1,85 @@
-# nf-core/pipeline
+# Algae Taxa from Genome Pipeline
 
 ## Introduction
 
-**nf-core/pipeline** is a bioinformatics pipeline that ...
+**Algae Taxa from Genome** is a bioinformatics pipeline that extracts taxonomically relevant sequences (rRNA, ITS) from whole algal genomes and classifies them against multiple reference databases. The pipeline takes assembled genome files as input and produces taxonomic classifications for 18S, 28S, 5.8S rRNA, and ITS1/ITS2 sequences.
 
-<!-- TODO nf-core:
-   Complete this sentence with a 2-3 sentence summary of what types of data the pipeline ingests, a brief overview of the
-   major pipeline sections and the types of output it produces. You're giving an overview to someone new
-   to nf-core here, in 15-20 seconds. For an example, see https://github.com/nf-core/rnaseq/blob/master/README.md#introduction
--->
+## Pipeline Steps
 
-<!-- TODO nf-core: Include a figure that guides the user through the major workflow steps. Many nf-core
-     workflows use the "tube map" design for that. See https://nf-co.re/docs/guidelines/graphic_design/workflow_diagrams#examples for examples.   -->
-<!-- TODO nf-core: Fill in short bullet-pointed list of the default steps in the pipeline -->2. Present QC for raw reads ([`MultiQC`](http://multiqc.info/))
+The pipeline performs the following steps:
 
-## Usage
+1. **Decompress genomes** - Automatically handles gzipped genome files
+2. **rRNA prediction** - Uses barrnap to identify rRNA genes across bacterial, archaeal, eukaryotic, and mitochondrial kingdoms
+3. **GFF combination** - Merges rRNA predictions from all kingdoms
+4. **Coordinate extraction** - Converts GFF annotations to BED format for each rRNA type
+5. **Sequence extraction** - Uses bedtools to extract FASTA sequences for each rRNA
+6. **ITS extraction** - Uses ITSx to identify and extract ITS1, ITS2, SSU, and LSU sequences
+7. **Taxonomic classification** - Uses mothur to classify sequences against multiple databases:
+   - **18S sequences**: EUKARYOME SSU, PR2 SSU, EUKARYOME longread
+   - **28S sequences**: EUKARYOME LSU, EUKARYOME longread
+   - **5.8S/ITS sequences**: EUKARYOME ITS, EUKARYOME longread
 
-> [!NOTE]
-> If you are new to Nextflow and nf-core, please refer to [this page](https://nf-co.re/docs/usage/installation) on how to set-up Nextflow. Make sure to [test your setup](https://nf-co.re/docs/usage/introduction#how-to-run-a-pipeline) with `-profile test` before running the workflow on actual data.
+## Quick Start
 
-<!-- TODO nf-core: Describe the minimum required steps to execute the pipeline, e.g. how to prepare samplesheets.
-     Explain what rows and columns represent. For instance (please edit as appropriate):
+### 1. Prepare Input Samplesheet
 
-First, prepare a samplesheet with your input data that looks as follows:
-
-`samplesheet.csv`:
+Create a CSV file with your genome samples:
 
 ```csv
-sample,fastq_1,fastq_2
-CONTROL_REP1,AEG588A1_S1_L002_R1_001.fastq.gz,AEG588A1_S1_L002_R2_001.fastq.gz
+sample,genome
+KAUST067,/path/to/KAUST067_purged.fa
+KAUST068,/path/to/KAUST068_purged.fa.gz
+KAUST069,/path/to/KAUST069_purged.fasta
 ```
 
-Each row represents a fastq file (single-end) or a pair of fastq files (paired end).
+Each row represents a genome assembly file. The pipeline automatically handles gzipped files.
 
--->
+### 2. Configure Database Paths
 
-Now, you can run the pipeline using:
+Edit `conf/databases.config` with your database paths or pass them as command-line parameters (see `DOCS/example_commands.md` for details).
 
-<!-- TODO nf-core: update the following command to include all required parameters for a minimal example -->
+### 3. Run the Pipeline
 
 ```bash
-nextflow run nf-core/pipeline \
-   -profile <docker/singularity/.../institute> \
+nextflow run main.nf \
+   -c conf/databases.config \
    --input samplesheet.csv \
-   --outdir <OUTDIR>
+   --outdir results \
+   --organism_type eukaryotic \
+   --itsx_organism_code G
 ```
 
-> [!WARNING]
-> Please provide pipeline parameters via the CLI or Nextflow `-params-file` option. Custom config files including those provided by the `-c` Nextflow option can be used to provide any configuration _**except for parameters**_; see [docs](https://nf-co.re/docs/usage/getting_started/configuration#custom-configuration-files).
+Available organism codes for ITSx (`--itsx_organism_code`):
+- `G` = Chlorophyta (green algae) - **default**
+- `H` = Rhodophyta (red algae)
+- `I` = Phaeophyceae (brown algae)
+- `P` = Haptophyceae
+- `C` = Bacillariophyta (diatoms)
+
+See **`DOCS/example_commands.md`** for comprehensive usage examples.
+
+> [!NOTE]
+> This pipeline requires reference databases from EUKARYOME and PR2. See `conf/databases.config` for required database paths.
+
+## Parameters
+
+### Required Parameters
+- `--input`: Path to samplesheet CSV file
+- `--outdir`: Output directory for results
+
+### Database Parameters
+Configure in `conf/databases.config` or pass via command line:
+- `--eukaryome_ssu_fasta` / `--eukaryome_ssu_taxonomy`: EUKARYOME SSU database
+- `--eukaryome_lsu_fasta` / `--eukaryome_lsu_taxonomy`: EUKARYOME LSU database
+- `--eukaryome_its_fasta` / `--eukaryome_its_taxonomy`: EUKARYOME ITS database
+- `--eukaryome_longread_fasta` / `--eukaryome_longread_taxonomy`: EUKARYOME longread database
+- `--pr2_ssu_fasta` / `--pr2_ssu_taxonomy`: PR2 SSU database
+
+### Optional Parameters
+- `--run_mothur_classification`: Enable/disable taxonomic classification (default: `true`)
+- `--organism_type`: Organism type for barrnap (default: `"eukaryotic"`)
+- `--itsx_organism_code`: Organism code for ITSx (default: `"G"` for Chlorophyta)
+- `--mothur_cutoff`: Bootstrap confidence cutoff for mothur (default: `80`)
 
 ## Credits
 
