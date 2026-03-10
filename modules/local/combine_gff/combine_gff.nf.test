@@ -1,0 +1,104 @@
+nextflow_process {
+
+    name "Test Process COMBINE_GFF"
+    script "modules/local/combine_gff/combine_gff.nf"
+    process "COMBINE_GFF"
+
+    test("combine four rRNA GFF files [bac, euk, mito, arc]") {
+        tag "fast"
+        options "-dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067_purged' ],
+                    [
+                        file("${projectDir}/modules/local/combine_gff/TESTDATA/KAUST067_purged.bac.rRNA.gff"),
+                        file("${projectDir}/modules/local/combine_gff/TESTDATA/KAUST067_purged.euk.rRNA.gff"),
+                        file("${projectDir}/modules/local/combine_gff/TESTDATA/KAUST067_purged.mito.rRNA.gff"),
+                        file("${projectDir}/modules/local/combine_gff/TESTDATA/KAUST067_purged.arc.rRNA.gff")
+                    ]
+                ]
+                """
+            }
+        }
+
+        then {
+            DebugUtils.printTree(process.out)
+
+            assert process.success
+
+            // Output GFF file exists with correct naming
+            assert process.out.gff.size() == 1
+            def (meta, gffPath) = process.out.gff[0]
+            assert meta.id == 'KAUST067_purged'
+            def gff = path(gffPath)
+            assert gff.fileName.toString() == 'KAUST067_purged.all.rRNA.gff'
+
+            // GFF header appears exactly once (only from the first input file)
+            assert gff.readLines().count { line -> line.startsWith('##gff-version') } == 1
+
+            // All four input files contributed data lines (non-header lines)
+            def dataLines = gff.readLines().findAll { line -> !line.startsWith('#') }
+            assert dataLines.size() > 0
+
+            // Data lines from all four domains are present
+            // bac: contains 16S_rRNA, 23S_rRNA, 5S_rRNA (prokaryotic rRNAs)
+            assert dataLines.any { line -> line.contains('barrnap:0.9') }
+
+            // Versions output is present
+            assert process.out.versions.size() == 1
+            def versionsYml = path(process.out.versions[0])
+            assert versionsYml.text.contains('COMBINE_GFF')
+            assert versionsYml.text.contains('cat')
+
+            assert snapshot(process.out).match()
+        }
+
+    }
+
+    // =========================================================================
+    // STUB TESTS
+    // =========================================================================
+
+    test("stub | combine four rRNA GFF files [bac, euk, mito, arc]") {
+        tag "stub"
+        tag "fast"
+        options "-stub-run -dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067_purged' ],
+                    [
+                        file("${projectDir}/modules/local/combine_gff/TESTDATA/KAUST067_purged.bac.rRNA.gff"),
+                        file("${projectDir}/modules/local/combine_gff/TESTDATA/KAUST067_purged.euk.rRNA.gff"),
+                        file("${projectDir}/modules/local/combine_gff/TESTDATA/KAUST067_purged.mito.rRNA.gff"),
+                        file("${projectDir}/modules/local/combine_gff/TESTDATA/KAUST067_purged.arc.rRNA.gff")
+                    ]
+                ]
+                """
+            }
+        }
+
+        then {
+            DebugUtils.printTree(process.out)
+            assert process.success
+
+            // Output GFF file exists with correct naming
+            assert process.out.gff.size() == 1
+            def (meta, gffPath) = process.out.gff[0]
+            assert meta.id == 'KAUST067_purged'
+            def gff = path(gffPath)
+            assert gff.fileName.toString() == 'KAUST067_purged.all.rRNA.gff'
+
+            // Versions output is present
+            assert process.out.versions.size() == 1
+
+            assert snapshot(process.out).match()
+        }
+
+    }
+}
