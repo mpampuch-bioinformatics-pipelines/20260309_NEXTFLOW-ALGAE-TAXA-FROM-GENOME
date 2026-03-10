@@ -5,12 +5,15 @@
 */
 
 include { DECOMPRESS_GENOME       } from '../modules/local/decompress_genome/decompress_genome'
-include { BARRNAP                 } from '../modules/local/barrnap'
-include { COMBINE_GFF             } from '../modules/local/combine_gff'
-include { EXTRACT_BED             } from '../modules/local/extract_bed'
-include { BEDTOOLS_GETFASTA       } from '../modules/local/bedtools_getfasta'
-include { ITSX                    } from '../modules/local/itsx'
-include { MOTHUR_CLASSIFY         } from '../modules/local/mothur_classify'
+include { BARRNAP as BARRNAP_EUK  } from '../modules/nf-core/barrnap/main'
+include { BARRNAP as BARRNAP_BAC  } from '../modules/nf-core/barrnap/main'
+include { BARRNAP as BARRNAP_ARC  } from '../modules/nf-core/barrnap/main'
+include { BARRNAP as BARRNAP_MITO } from '../modules/nf-core/barrnap/main'
+include { COMBINE_GFF             } from '../modules/local/combine_gff/combine_gff'
+include { EXTRACT_BED             } from '../modules/local/extract_bed/extract_bed'
+include { BEDTOOLS_GETFASTA       } from '../modules/local/bedtools_getfasta/bedtools_getfasta'
+include { ITSX                    } from '../modules/local/itsx/itsx'
+include { MOTHUR_CLASSIFY         } from '../modules/local/mothur_classify/mothur_classify'
 include { paramsSummaryLog        } from 'plugin/nf-schema'
 
 /*
@@ -20,7 +23,6 @@ include { paramsSummaryLog        } from 'plugin/nf-schema'
 */
 
 workflow ALGAE_TAXA {
-
     take:
     ch_input // channel: [ val(meta), path(genome) ]
 
@@ -42,15 +44,14 @@ workflow ALGAE_TAXA {
         ch_branched.compressed
     )
 
-    ch_genome = ch_branched.decompressed
-        .mix(DECOMPRESS_GENOME.out.genome)
+    ch_genome = ch_branched.decompressed.mix(DECOMPRESS_GENOME.out.genome)
 
     //
     // MODULE: Run BARRNAP for rRNA prediction
     //
     BARRNAP(
         ch_genome,
-        params.organism_type
+        params.organism_type,
     )
     ch_versions = ch_versions.mix(BARRNAP.out.versions)
 
@@ -66,15 +67,14 @@ workflow ALGAE_TAXA {
     //
     EXTRACT_BED(
         COMBINE_GFF.out.gff,
-        params.organism_type
+        params.organism_type,
     )
 
     //
     // MODULE: Extract FASTA sequences using bedtools
     //
     BEDTOOLS_GETFASTA(
-        ch_genome
-            .join(EXTRACT_BED.out.bed)
+        ch_genome.join(EXTRACT_BED.out.bed)
     )
     ch_versions = ch_versions.mix(BEDTOOLS_GETFASTA.out.versions.first())
 
@@ -87,7 +87,7 @@ workflow ALGAE_TAXA {
             def new_meta = meta + [organism_type: params.itsx_organism_code]
             [new_meta, genome]
         }
-        
+
         ITSX(ch_genome_with_organism)
         ch_versions = ch_versions.mix(ITSX.out.versions.first())
     }
@@ -96,30 +96,40 @@ workflow ALGAE_TAXA {
     // MODULE: Mothur classification for eukaryotic sequences
     //
     ch_classifications = channel.empty()
-    
+
     if (params.organism_type == 'eukaryotic' && params.run_mothur_classification) {
-        
+
         // Prepare classification inputs by combining sequences with database info
         // Create a channel with all sequence/database combinations to classify
-        
+
         // Get extracted rRNA sequences from bedtools output
         def ch_rrna_for_classification = BEDTOOLS_GETFASTA.out.fasta
-            .transpose() // Emit each fasta file separately
+            .transpose()
             .map { meta, fasta ->
                 def filename = fasta.name
                 def seq_type = null
-                
+
                 // Determine sequence type from filename
-                if (filename.contains('.18s.')) seq_type = '18S'
-                else if (filename.contains('.28s.')) seq_type = '28S'
-                else if (filename.contains('.5_8s.')) seq_type = '5_8S'
-                else if (filename.contains('.16s.')) seq_type = '16S'
-                else if (filename.contains('.23s.')) seq_type = '23S'
-                
+                if (filename.contains('.18s.')) {
+                    seq_type = '18S'
+                }
+                else if (filename.contains('.28s.')) {
+                    seq_type = '28S'
+                }
+                else if (filename.contains('.5_8s.')) {
+                    seq_type = '5_8S'
+                }
+                else if (filename.contains('.16s.')) {
+                    seq_type = '16S'
+                }
+                else if (filename.contains('.23s.')) {
+                    seq_type = '23S'
+                }
+
                 return seq_type ? [meta, fasta, seq_type] : null
             }
             .filter { it != null }
-        
+
         // Get ITS sequences from ITSx
         def ch_its_for_classification = channel.empty()
         if (params.organism_type == 'eukaryotic') {
@@ -127,60 +137,93 @@ workflow ALGAE_TAXA {
             def ch_its2 = ITSX.out.its2.map { meta, fasta -> [meta, fasta, 'ITS2'] }
             ch_its_for_classification = ch_its1.mix(ch_its2)
         }
-        
+
         // Combine all sequences for classification
         def ch_all_seqs = ch_rrna_for_classification.mix(ch_its_for_classification)
-        
+
         // Create database configurations based on sequence type
         def ch_seq_with_dbs = ch_all_seqs
             .flatMap { meta, fasta, seq_type ->
                 def combinations = []
-                
+
                 // 18S classifications
                 if (seq_type == '18S') {
                     if (params.eukaryome_ssu_fasta && params.eukaryome_ssu_taxonomy) {
-                        combinations << [meta, fasta, seq_type, 'EUKARYOME_SSU', 
-                                       file(params.eukaryome_ssu_fasta), 
-                                       file(params.eukaryome_ssu_taxonomy)]
+                        combinations << [
+                            meta,
+                            fasta,
+                            seq_type,
+                            'EUKARYOME_SSU',
+                            file(params.eukaryome_ssu_fasta),
+                            file(params.eukaryome_ssu_taxonomy),
+                        ]
                     }
                     if (params.pr2_ssu_fasta && params.pr2_ssu_taxonomy) {
-                        combinations << [meta, fasta, seq_type, 'PR2_SSU', 
-                                       file(params.pr2_ssu_fasta), 
-                                       file(params.pr2_ssu_taxonomy)]
+                        combinations << [
+                            meta,
+                            fasta,
+                            seq_type,
+                            'PR2_SSU',
+                            file(params.pr2_ssu_fasta),
+                            file(params.pr2_ssu_taxonomy),
+                        ]
                     }
                     if (params.eukaryome_longread_fasta && params.eukaryome_longread_taxonomy) {
-                        combinations << [meta, fasta, seq_type, 'EUKARYOME_LONGREAD', 
-                                       file(params.eukaryome_longread_fasta), 
-                                       file(params.eukaryome_longread_taxonomy)]
+                        combinations << [
+                            meta,
+                            fasta,
+                            seq_type,
+                            'EUKARYOME_LONGREAD',
+                            file(params.eukaryome_longread_fasta),
+                            file(params.eukaryome_longread_taxonomy),
+                        ]
                     }
                 }
-                // 28S classifications
                 else if (seq_type == '28S') {
                     if (params.eukaryome_lsu_fasta && params.eukaryome_lsu_taxonomy) {
-                        combinations << [meta, fasta, seq_type, 'EUKARYOME_LSU', 
-                                       file(params.eukaryome_lsu_fasta), 
-                                       file(params.eukaryome_lsu_taxonomy)]
+                        combinations << [
+                            meta,
+                            fasta,
+                            seq_type,
+                            'EUKARYOME_LSU',
+                            file(params.eukaryome_lsu_fasta),
+                            file(params.eukaryome_lsu_taxonomy),
+                        ]
                     }
                     if (params.eukaryome_longread_fasta && params.eukaryome_longread_taxonomy) {
-                        combinations << [meta, fasta, seq_type, 'EUKARYOME_LONGREAD', 
-                                       file(params.eukaryome_longread_fasta), 
-                                       file(params.eukaryome_longread_taxonomy)]
+                        combinations << [
+                            meta,
+                            fasta,
+                            seq_type,
+                            'EUKARYOME_LONGREAD',
+                            file(params.eukaryome_longread_fasta),
+                            file(params.eukaryome_longread_taxonomy),
+                        ]
                     }
                 }
-                // 5.8S, ITS1, ITS2 classifications
                 else if (seq_type in ['5_8S', 'ITS1', 'ITS2']) {
                     if (params.eukaryome_its_fasta && params.eukaryome_its_taxonomy) {
-                        combinations << [meta, fasta, seq_type, 'EUKARYOME_ITS', 
-                                       file(params.eukaryome_its_fasta), 
-                                       file(params.eukaryome_its_taxonomy)]
+                        combinations << [
+                            meta,
+                            fasta,
+                            seq_type,
+                            'EUKARYOME_ITS',
+                            file(params.eukaryome_its_fasta),
+                            file(params.eukaryome_its_taxonomy),
+                        ]
                     }
                     if (params.eukaryome_longread_fasta && params.eukaryome_longread_taxonomy) {
-                        combinations << [meta, fasta, seq_type, 'EUKARYOME_LONGREAD', 
-                                       file(params.eukaryome_longread_fasta), 
-                                       file(params.eukaryome_longread_taxonomy)]
+                        combinations << [
+                            meta,
+                            fasta,
+                            seq_type,
+                            'EUKARYOME_LONGREAD',
+                            file(params.eukaryome_longread_fasta),
+                            file(params.eukaryome_longread_taxonomy),
+                        ]
                     }
                 }
-                
+
                 return combinations
             }
             .map { meta, fasta, seq_type, db_name, ref_fasta, ref_tax ->
@@ -188,7 +231,7 @@ workflow ALGAE_TAXA {
                 def new_meta = meta + [seq_type: seq_type, database: db_name]
                 [new_meta, fasta, seq_type, ref_fasta, ref_tax]
             }
-        
+
         // Run mothur classification
         MOTHUR_CLASSIFY(ch_seq_with_dbs)
         ch_versions = ch_versions.mix(MOTHUR_CLASSIFY.out.versions.first())
@@ -196,19 +239,13 @@ workflow ALGAE_TAXA {
     }
 
     emit:
-    gff                 = COMBINE_GFF.out.gff         // channel: [ val(meta), path(gff) ]
-    bed                 = EXTRACT_BED.out.bed         // channel: [ val(meta), path(bed) ]
-    fasta               = BEDTOOLS_GETFASTA.out.fasta // channel: [ val(meta), path(fastas) ]
-    its1                = params.organism_type == 'eukaryotic' ? ITSX.out.its1 : channel.empty()
-    its2                = params.organism_type == 'eukaryotic' ? ITSX.out.its2 : channel.empty()
-    ssu                 = params.organism_type == 'eukaryotic' ? ITSX.out.ssu : channel.empty()
-    lsu                 = params.organism_type == 'eukaryotic' ? ITSX.out.lsu : channel.empty()
-    classifications     = ch_classifications          // channel: [ val(meta), path(taxonomy/summary) ]
-    versions            = ch_versions                 // channel: [ path(versions) ]
+    gff             = COMBINE_GFF.out.gff // channel: [ val(meta), path(gff) ]
+    bed             = EXTRACT_BED.out.bed // channel: [ val(meta), path(bed) ]
+    fasta           = BEDTOOLS_GETFASTA.out.fasta // channel: [ val(meta), path(fastas) ]
+    its1            = params.organism_type == 'eukaryotic' ? ITSX.out.its1 : channel.empty()
+    its2            = params.organism_type == 'eukaryotic' ? ITSX.out.its2 : channel.empty()
+    ssu             = params.organism_type == 'eukaryotic' ? ITSX.out.ssu : channel.empty()
+    lsu             = params.organism_type == 'eukaryotic' ? ITSX.out.lsu : channel.empty()
+    classifications = ch_classifications // channel: [ val(meta), path(taxonomy/summary) ]
+    versions        = ch_versions // channel: [ path(versions) ]
 }
-
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    THE END
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
