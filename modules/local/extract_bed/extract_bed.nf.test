@@ -1,0 +1,206 @@
+nextflow_process {
+
+    name "Test Process EXTRACT_BED"
+    script "modules/local/extract_bed/extract_bed.nf"
+    process "EXTRACT_BED"
+
+    test("eukaryotic | extract BED files from combined rRNA GFF") {
+        tag "fast"
+        options "-dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067_purged' ],
+                    file("${projectDir}/modules/local/extract_bed/TESTDATA/KAUST067_purged.all.rRNA.gff")
+                ]
+                input[1] = 'eukaryotic'
+                """
+            }
+        }
+
+        then {
+            DebugUtils.printTree(process.out)
+
+            assert process.success
+
+            // Eukaryotic mode produces 7 BED files (12S, 16S, 18S, 23S, 28S, 5_8S, 5S)
+            assert process.out.bed.size() == 1
+            def (meta, bedFiles) = process.out.bed[0]
+            assert meta.id == 'KAUST067_purged'
+
+            def beds = (bedFiles instanceof List ? bedFiles : [bedFiles]).collect { path(it) }
+            def bedNames = beds.collect { it.fileName.toString() }.sort()
+            assert bedNames.size() == 7
+            assert bedNames.contains('KAUST067_purged.12s.bed')
+            assert bedNames.contains('KAUST067_purged.16s.bed')
+            assert bedNames.contains('KAUST067_purged.18s.bed')
+            assert bedNames.contains('KAUST067_purged.23s.bed')
+            assert bedNames.contains('KAUST067_purged.28s.bed')
+            assert bedNames.contains('KAUST067_purged.5_8s.bed')
+            assert bedNames.contains('KAUST067_purged.5s.bed')
+
+            // BED files with known hits should be non-empty (all 7 types present in test data)
+            def bed16s = beds.find { it.fileName.toString() == 'KAUST067_purged.16s.bed' }
+            assert bed16s.readLines().size() > 0
+
+            def bed18s = beds.find { it.fileName.toString() == 'KAUST067_purged.18s.bed' }
+            assert bed18s.readLines().size() > 0
+
+            def bed28s = beds.find { it.fileName.toString() == 'KAUST067_purged.28s.bed' }
+            assert bed28s.readLines().size() > 0
+
+            // BED lines have 4 tab-separated columns: seqname, start (0-based), end, name
+            def firstLine = bed16s.readLines()[0].split('\t')
+            assert firstLine.size() == 4
+            assert firstLine[1].toLong() >= 0   // 0-based start
+            assert firstLine[2].toLong() > firstLine[1].toLong()  // end > start
+            assert firstLine[3].contains('16S_rRNA')
+
+            // Versions output is present
+            assert process.out.versions.size() == 1
+            def versionsYml = path(process.out.versions[0])
+            assert versionsYml.text.contains('EXTRACT_BED')
+            assert versionsYml.text.contains('awk')
+
+            assert snapshot(process.out).match()
+        }
+
+    }
+
+    test("prokaryotic | extract BED files from combined rRNA GFF") {
+        tag "fast"
+        options "-dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067_purged' ],
+                    file("${projectDir}/modules/local/extract_bed/TESTDATA/KAUST067_purged.all.rRNA.gff")
+                ]
+                input[1] = 'prokaryotic'
+                """
+            }
+        }
+
+        then {
+            DebugUtils.printTree(process.out)
+
+            assert process.success
+
+            // Prokaryotic mode produces 4 BED files (12S, 16S, 23S, 5S)
+            assert process.out.bed.size() == 1
+            def (meta, bedFiles) = process.out.bed[0]
+            assert meta.id == 'KAUST067_purged'
+
+            def beds = (bedFiles instanceof List ? bedFiles : [bedFiles]).collect { path(it) }
+            def bedNames = beds.collect { it.fileName.toString() }.sort()
+            assert bedNames.size() == 4
+            assert bedNames.contains('KAUST067_purged.12s.bed')
+            assert bedNames.contains('KAUST067_purged.16s.bed')
+            assert bedNames.contains('KAUST067_purged.23s.bed')
+            assert bedNames.contains('KAUST067_purged.5s.bed')
+
+            // No eukaryotic-only BED files
+            assert !bedNames.contains('KAUST067_purged.18s.bed')
+            assert !bedNames.contains('KAUST067_purged.28s.bed')
+            assert !bedNames.contains('KAUST067_purged.5_8s.bed')
+
+            // BED files with known hits should be non-empty
+            def bed16s = beds.find { it.fileName.toString() == 'KAUST067_purged.16s.bed' }
+            assert bed16s.readLines().size() > 0
+
+            def bed23s = beds.find { it.fileName.toString() == 'KAUST067_purged.23s.bed' }
+            assert bed23s.readLines().size() > 0
+
+            // Versions output is present
+            assert process.out.versions.size() == 1
+            def versionsYml = path(process.out.versions[0])
+            assert versionsYml.text.contains('EXTRACT_BED')
+            assert versionsYml.text.contains('awk')
+
+            assert snapshot(process.out).match()
+        }
+
+    }
+
+    // =========================================================================
+    // STUB TESTS
+    // =========================================================================
+
+    test("stub | eukaryotic | extract BED files from combined rRNA GFF") {
+        tag "stub"
+        tag "fast"
+        options "-stub-run -dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067_purged' ],
+                    file("${projectDir}/modules/local/extract_bed/TESTDATA/KAUST067_purged.all.rRNA.gff")
+                ]
+                input[1] = 'eukaryotic'
+                """
+            }
+        }
+
+        then {
+            DebugUtils.printTree(process.out)
+            assert process.success
+
+            // Eukaryotic stub produces 7 BED files
+            assert process.out.bed.size() == 1
+            def (meta, bedFiles) = process.out.bed[0]
+            assert meta.id == 'KAUST067_purged'
+
+            def beds = (bedFiles instanceof List ? bedFiles : [bedFiles]).collect { path(it) }
+            assert beds.collect { it.fileName.toString() }.sort().size() == 7
+
+            // Versions output is present
+            assert process.out.versions.size() == 1
+
+            assert snapshot(process.out).match()
+        }
+
+    }
+
+    test("stub | prokaryotic | extract BED files from combined rRNA GFF") {
+        tag "stub"
+        tag "fast"
+        options "-stub-run -dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067_purged' ],
+                    file("${projectDir}/modules/local/extract_bed/TESTDATA/KAUST067_purged.all.rRNA.gff")
+                ]
+                input[1] = 'prokaryotic'
+                """
+            }
+        }
+
+        then {
+            DebugUtils.printTree(process.out)
+            assert process.success
+
+            // Prokaryotic stub produces 4 BED files
+            assert process.out.bed.size() == 1
+            def (meta, bedFiles) = process.out.bed[0]
+            assert meta.id == 'KAUST067_purged'
+
+            def beds = (bedFiles instanceof List ? bedFiles : [bedFiles]).collect { path(it) }
+            assert beds.collect { it.fileName.toString() }.sort().size() == 4
+
+            // Versions output is present
+            assert process.out.versions.size() == 1
+
+            assert snapshot(process.out).match()
+        }
+
+    }
+}
