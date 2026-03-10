@@ -7,49 +7,289 @@ nextflow_process {
     tag "modules_nfcore"
     tag "barrnap"
 
-    test("barrnap") {
+    // =========================================================================
+    // REAL TESTS
+    // =========================================================================
+
+    // POTENTIAL TODO: Find a more appropriate test data set for this module to increase the testing speed. Right now KAUST067 is a large genome and takes a long time to test.
+
+    test("barrnap - euk") {
+        tag "slow"
+        tag "barrnap_euk"
+        options "-dump-hashes"
 
         when {
             process {
                 """
                 input[0] = [
-                                [ id:'test', single_end:false ], // meta map
-                                file(params.modules_testdata_base_path + 'genomics/sarscov2/illumina/fasta/contigs.fasta', checkIfExists: true),
-                                "bac"
-                            ]
+                    [ id:'KAUST067' ], // meta map
+                    file('/ibex/scratch/projects/c2303/20260309_NEXTFLOW-ALGAE-TAXA-FROM-GENOME/DATA/KAUST067_purged.fa', checkIfExists: true),
+                    'euk'
+                ]
                 """
             }
         }
 
         then {
-            assertAll(
-            { assert process.success },
-            { assert snapshot(process.out).match() }
-            )
+            DebugUtils.printTree(process.out)
+
+            assert process.success
+
+            assert process.out.gff.size() == 1
+            assert process.out.gff[0][0].id == 'KAUST067'
+            assert file(process.out.gff[0][1]).name.endsWith('.gff')
+            assert file(process.out.gff[0][1]).name.contains('euk')
+
+            assert process.out.versions.size() == 1
+
+            assert snapshot(process.out).match()
         }
     }
 
-    test("barrnap - stub") {
-
-        options "-stub"
+    test("barrnap - bac") {
+        tag "slow"
+        tag "barrnap_bac"
+        options "-dump-hashes"
 
         when {
             process {
                 """
                 input[0] = [
-                                [ id:'test', single_end:false ], // meta map
-                                file(params.modules_testdata_base_path + 'genomics/sarscov2/illumina/fasta/contigs.fasta', checkIfExists: true),
-                                "bac"
-                            ]
+                    [ id:'KAUST067' ], // meta map
+                    file('/ibex/scratch/projects/c2303/20260309_NEXTFLOW-ALGAE-TAXA-FROM-GENOME/DATA/KAUST067_purged.fa', checkIfExists: true),
+                    'bac'
+                ]
                 """
             }
         }
 
         then {
-            assertAll(
-            { assert process.success },
-            { assert snapshot(process.out).match() }
-            )
+            DebugUtils.printTree(process.out)
+
+            assert process.success
+
+            assert process.out.gff.size() == 1
+            assert process.out.gff[0][0].id == 'KAUST067'
+            assert file(process.out.gff[0][1]).name.endsWith('.gff')
+            assert file(process.out.gff[0][1]).name.contains('bac')
+
+            assert process.out.versions.size() == 1
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    test("barrnap - arc") {
+        tag "slow"
+        tag "barrnap_arc"
+        options "-dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'KAUST067' ], // meta map
+                    file('/ibex/scratch/projects/c2303/20260309_NEXTFLOW-ALGAE-TAXA-FROM-GENOME/DATA/KAUST067_purged.fa', checkIfExists: true),
+                    'arc'
+                ]
+                """
+            }
+        }
+
+        then {
+            DebugUtils.printTree(process.out)
+
+            assert process.success
+
+            assert process.out.gff.size() == 1
+            assert process.out.gff[0][0].id == 'KAUST067'
+            assert file(process.out.gff[0][1]).name.endsWith('.gff')
+            assert file(process.out.gff[0][1]).name.contains('arc')
+
+            assert process.out.versions.size() == 1
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    test("barrnap - mito") {
+        tag "slow"
+        tag "barrnap_mito"
+        options "-dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'KAUST067' ], // meta map
+                    file('/ibex/scratch/projects/c2303/20260309_NEXTFLOW-ALGAE-TAXA-FROM-GENOME/DATA/KAUST067_purged.fa', checkIfExists: true),
+                    'mito'
+                ]
+                """
+            }
+        }
+
+        then {
+            DebugUtils.printTree(process.out)
+
+            assert process.success
+
+            assert process.out.gff.size() == 1
+            assert process.out.gff[0][0].id == 'KAUST067'
+            assert file(process.out.gff[0][1]).name.endsWith('.gff')
+            assert file(process.out.gff[0][1]).name.contains('mito')
+
+            assert process.out.versions.size() == 1
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // =========================================================================
+    // STUB TESTS
+    // =========================================================================
+
+    test("barrnap - euk - stub") {
+        tag "fast"
+        tag "stub"
+        tag "barrnap_euk_stub"
+        options "-stub-run -dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'KAUST067' ], // meta map
+                    file('/ibex/scratch/projects/c2303/20260309_NEXTFLOW-ALGAE-TAXA-FROM-GENOME/DATA/KAUST067_purged.fa', checkIfExists: true),
+                    'euk'
+                ]
+                """
+            }
+        }
+
+        then {
+            DebugUtils.printTree(process.out)
+
+            assert process.success
+
+            // stub block uses `touch`, so the file is intentionally empty (size == 0)
+            assert process.out.gff.size() == 1
+            assert process.out.gff[0][0].id == 'KAUST067'
+            assert file(process.out.gff[0][1]).name.endsWith('.gff')
+            assert file(process.out.gff[0][1]).name.contains('euk')
+            assert file(process.out.gff[0][1]).size() == 0
+
+            assert process.out.versions.size() == 1
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    test("barrnap - bac - stub") {
+        tag "fast"
+        tag "stub"
+        tag "barrnap_bac_stub"
+        options "-stub-run -dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'KAUST067' ], // meta map
+                    file('/ibex/scratch/projects/c2303/20260309_NEXTFLOW-ALGAE-TAXA-FROM-GENOME/DATA/KAUST067_purged.fa', checkIfExists: true),
+                    'bac'
+                ]
+                """
+            }
+        }
+
+        then {
+            DebugUtils.printTree(process.out)
+
+            assert process.success
+
+            // stub block uses `touch`, so the file is intentionally empty (size == 0)
+            assert process.out.gff.size() == 1
+            assert process.out.gff[0][0].id == 'KAUST067'
+            assert file(process.out.gff[0][1]).name.endsWith('.gff')
+            assert file(process.out.gff[0][1]).name.contains('bac')
+            assert file(process.out.gff[0][1]).size() == 0
+
+            assert process.out.versions.size() == 1
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    test("barrnap - arc - stub") {
+        tag "fast"
+        tag "stub"
+        tag "barrnap_arc_stub"
+        options "-stub-run -dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'KAUST067' ], // meta map
+                    file('/ibex/scratch/projects/c2303/20260309_NEXTFLOW-ALGAE-TAXA-FROM-GENOME/DATA/KAUST067_purged.fa', checkIfExists: true),
+                    'arc'
+                ]
+                """
+            }
+        }
+
+        then {
+            DebugUtils.printTree(process.out)
+
+            assert process.success
+
+            // stub block uses `touch`, so the file is intentionally empty (size == 0)
+            assert process.out.gff.size() == 1
+            assert process.out.gff[0][0].id == 'KAUST067'
+            assert file(process.out.gff[0][1]).name.endsWith('.gff')
+            assert file(process.out.gff[0][1]).name.contains('arc')
+            assert file(process.out.gff[0][1]).size() == 0
+
+            assert process.out.versions.size() == 1
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    test("barrnap - mito - stub") {
+        tag "fast"
+        tag "stub"
+        tag "barrnap_mito_stub"
+        options "-stub-run -dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'KAUST067' ], // meta map
+                    file('/ibex/scratch/projects/c2303/20260309_NEXTFLOW-ALGAE-TAXA-FROM-GENOME/DATA/KAUST067_purged.fa', checkIfExists: true),
+                    'mito'
+                ]
+                """
+            }
+        }
+
+        then {
+            DebugUtils.printTree(process.out)
+
+            assert process.success
+
+            // stub block uses `touch`, so the file is intentionally empty (size == 0)
+            assert process.out.gff.size() == 1
+            assert process.out.gff[0][0].id == 'KAUST067'
+            assert file(process.out.gff[0][1]).name.endsWith('.gff')
+            assert file(process.out.gff[0][1]).name.contains('mito')
+            assert file(process.out.gff[0][1]).size() == 0
+
+            assert process.out.versions.size() == 1
+
+            assert snapshot(process.out).match()
         }
     }
 }

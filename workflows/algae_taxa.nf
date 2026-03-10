@@ -47,19 +47,44 @@ workflow ALGAE_TAXA {
     ch_genome = ch_branched.decompressed.mix(DECOMPRESS_GENOME.out.genome)
 
     //
-    // MODULE: Run BARRNAP for rRNA prediction
+    // MODULE: Run BARRNAP for rRNA prediction across all four kingdoms
     //
-    BARRNAP(
-        ch_genome,
-        params.organism_type,
+    // The nf-core barrnap module expects: tuple val(meta), path(fasta), val(dbname)
+    // The dbname must be embedded in the channel tuple, not passed as a separate param.
+    //
+    BARRNAP_EUK(
+        ch_genome.map { meta, fasta -> [meta, fasta, 'euk'] }
     )
-    ch_versions = ch_versions.mix(BARRNAP.out.versions)
+    ch_versions = ch_versions.mix(BARRNAP_EUK.out.versions)
+
+    BARRNAP_BAC(
+        ch_genome.map { meta, fasta -> [meta, fasta, 'bac'] }
+    )
+    ch_versions = ch_versions.mix(BARRNAP_BAC.out.versions)
+
+    BARRNAP_ARC(
+        ch_genome.map { meta, fasta -> [meta, fasta, 'arc'] }
+    )
+    ch_versions = ch_versions.mix(BARRNAP_ARC.out.versions)
+
+    BARRNAP_MITO(
+        ch_genome.map { meta, fasta -> [meta, fasta, 'mito'] }
+    )
+    ch_versions = ch_versions.mix(BARRNAP_MITO.out.versions)
 
     //
-    // MODULE: Combine GFF files from different kingdoms
+    // MODULE: Combine GFF files from all four kingdoms per sample
     //
+    // Group all four GFFs together by meta, then pass as a list to COMBINE_GFF
+    //
+    ch_all_gffs = BARRNAP_EUK.out.gff
+        .mix(BARRNAP_BAC.out.gff)
+        .mix(BARRNAP_ARC.out.gff)
+        .mix(BARRNAP_MITO.out.gff)
+        .groupTuple()
+
     COMBINE_GFF(
-        BARRNAP.out.gff
+        ch_all_gffs
     )
 
     //

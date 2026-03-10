@@ -1,0 +1,1 @@
+/ibex/scratch/projects/c2303/20260309_NEXTFLOW-ALGAE-TAXA-FROM-GENOME/DATA/KAUST067_purged.fa
