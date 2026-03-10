@@ -11,7 +11,7 @@ include { BARRNAP as BARRNAP_ARC  } from '../modules/nf-core/barrnap/main'
 include { BARRNAP as BARRNAP_MITO } from '../modules/nf-core/barrnap/main'
 include { COMBINE_GFF             } from '../modules/local/combine_gff/combine_gff'
 include { EXTRACT_BED             } from '../modules/local/extract_bed/extract_bed'
-include { BEDTOOLS_GETFASTA       } from '../modules/local/bedtools_getfasta/bedtools_getfasta'
+include { BEDTOOLS_GETFASTA       } from '../modules/nf-core/bedtools/getfasta/main'
 include { ITSX                    } from '../modules/local/itsx/itsx'
 include { MOTHUR_CLASSIFY         } from '../modules/local/mothur_classify/mothur_classify'
 include { paramsSummaryLog        } from 'plugin/nf-schema'
@@ -98,10 +98,19 @@ workflow ALGAE_TAXA {
     //
     // MODULE: Extract FASTA sequences using bedtools
     //
+    // EXTRACT_BED emits [ meta, [bed1, bed2, ...] ] (one list of BED files per sample).
+    // bedtools getfasta runs once per BED file, so we transpose to get
+    // [ meta, bed ] per-file tuples, then join the genome FASTA (bare path, no meta)
+    // as the second input channel.
+    //
+    ch_bed_per_file = EXTRACT_BED.out.bed
+        .transpose() // [ meta, bed ] — one tuple per individual BED file
+
     BEDTOOLS_GETFASTA(
-        ch_genome.join(EXTRACT_BED.out.bed)
+        ch_bed_per_file,                           // input[0]: tuple val(meta), path(bed)
+        ch_genome.map { _meta, fasta -> fasta }    // input[1]: path fasta (bare, no meta)
     )
-    ch_versions = ch_versions.mix(BEDTOOLS_GETFASTA.out.versions.first())
+    ch_versions = ch_versions.mix(BEDTOOLS_GETFASTA.out.versions_bedtools.first())
 
     //
     // MODULE: Run ITSx for ITS extraction (only for eukaryotes)
