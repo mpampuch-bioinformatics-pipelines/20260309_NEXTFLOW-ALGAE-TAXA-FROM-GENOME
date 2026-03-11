@@ -1,0 +1,576 @@
+nextflow_process {
+
+    name "Test Process MOTHUR_CLASSIFY"
+    script "modules/local/mothur_classify/mothur_classify.nf"
+    process "MOTHUR_CLASSIFY"
+    config 'conf/databases.config'
+    tag "modules"
+    tag "modules_local"
+    tag "mothur_classify"
+
+    // =========================================================================
+    // REAL TESTS
+    // =========================================================================
+
+    test("KAUST067 | ITS1 | mothur classify | EUKARYOME_ITS") {
+        config "modules/local/mothur_classify/mothur_classify.test.config"
+        options "-dump-hashes"
+        tag 'slow'
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067', seq_type: 'ITS1', database: 'EUKARYOME_ITS' ],
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.ITS1.fasta', checkIfExists: true),
+                    'ITS1',
+                    file(params.eukaryome_its_fasta, checkIfExists: true),
+                    file(params.eukaryome_its_taxonomy, checkIfExists: true)
+                ]
+                """
+            }
+        }
+        then {
+            DebugUtils.printTree(process.out)
+            assert process.success
+            assert process.out.taxonomy.size() == 1
+            assert process.out.taxonomy[0][0].id == 'KAUST067'
+            assert file(process.out.taxonomy[0][1]).name == 'KAUST067.ITS1.DB_EUKARYOME_ITS.taxonomy'
+            assert file(process.out.taxonomy[0][1]).size() > 0
+            assert process.out.summary.size() == 1
+            assert process.out.summary[0][0].id == 'KAUST067'
+            assert file(process.out.summary[0][1]).name == 'KAUST067.ITS1.DB_EUKARYOME_ITS.summary'
+            assert file(process.out.summary[0][1]).size() > 0
+            assert process.out.versions.size() == 1
+            assert path(process.out.versions[0]).readLines().any { line -> line.contains('mothur') }
+            assert snapshot(process.out).match()
+        }
+    }
+
+    test("KAUST067 | ITS2 | mothur classify | EUKARYOME_ITS") {
+        config "modules/local/mothur_classify/mothur_classify.test.config"
+        options "-dump-hashes"
+        tag 'slow'
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067', seq_type: 'ITS2', database: 'EUKARYOME_ITS' ],
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.ITS2.fasta', checkIfExists: true),
+                    'ITS2',
+                    file(params.eukaryome_its_fasta, checkIfExists: true),
+                    file(params.eukaryome_its_taxonomy, checkIfExists: true)
+                ]
+                """
+            }
+        }
+        then {
+            DebugUtils.printTree(process.out)
+            assert process.success
+            assert process.out.taxonomy.size() == 1
+            assert process.out.taxonomy[0][0].id == 'KAUST067'
+            assert file(process.out.taxonomy[0][1]).name == 'KAUST067.ITS2.DB_EUKARYOME_ITS.taxonomy'
+            assert file(process.out.taxonomy[0][1]).size() > 0
+            assert process.out.summary.size() == 1
+            assert process.out.summary[0][0].id == 'KAUST067'
+            assert file(process.out.summary[0][1]).name == 'KAUST067.ITS2.DB_EUKARYOME_ITS.summary'
+            assert file(process.out.summary[0][1]).size() > 0
+            assert process.out.versions.size() == 1
+            assert path(process.out.versions[0]).readLines().any { line -> line.contains('mothur') }
+            assert snapshot(process.out).match()
+        }
+    }
+
+    test("KAUST067 | 5_8S | mothur classify | EUKARYOME_ITS") {
+        config "modules/local/mothur_classify/mothur_classify.test.config"
+        options "-dump-hashes"
+        tag 'slow'
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067', seq_type: '5_8S', database: 'EUKARYOME_ITS' ],
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.5_8s.fa', checkIfExists: true),
+                    '5_8S',
+                    file(params.eukaryome_its_fasta, checkIfExists: true),
+                    file(params.eukaryome_its_taxonomy, checkIfExists: true)
+                ]
+                """
+            }
+        }
+        then {
+            DebugUtils.printTree(process.out)
+            assert process.success
+            assert process.out.taxonomy.size() == 1
+            assert process.out.taxonomy[0][0].id == 'KAUST067'
+            assert file(process.out.taxonomy[0][1]).name == 'KAUST067.5_8S.DB_EUKARYOME_ITS.taxonomy'
+            assert file(process.out.taxonomy[0][1]).size() > 0
+            assert process.out.summary.size() == 1
+            assert process.out.summary[0][0].id == 'KAUST067'
+            assert file(process.out.summary[0][1]).name == 'KAUST067.5_8S.DB_EUKARYOME_ITS.summary'
+            assert file(process.out.summary[0][1]).size() > 0
+            assert process.out.versions.size() == 1
+            assert path(process.out.versions[0]).readLines().any { line -> line.contains('mothur') }
+            assert snapshot(process.out).match()
+        }
+    }
+
+    test("KAUST067 | 18S | mothur classify | EUKARYOME_SSU") {
+        config "modules/local/mothur_classify/mothur_classify.test.config"
+        options "-dump-hashes"
+        tag 'slow'
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067', seq_type: '18S', database: 'EUKARYOME_SSU' ],
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.18s.fa', checkIfExists: true),
+                    '18S',
+                    file(params.eukaryome_ssu_fasta, checkIfExists: true),
+                    file(params.eukaryome_ssu_taxonomy, checkIfExists: true)
+                ]
+                """
+            }
+        }
+        then {
+            DebugUtils.printTree(process.out)
+            assert process.success
+            assert process.out.taxonomy.size() == 1
+            assert process.out.taxonomy[0][0].id == 'KAUST067'
+            assert file(process.out.taxonomy[0][1]).name == 'KAUST067.18S.DB_EUKARYOME_SSU.taxonomy'
+            assert file(process.out.taxonomy[0][1]).size() > 0
+            assert process.out.summary.size() == 1
+            assert process.out.summary[0][0].id == 'KAUST067'
+            assert file(process.out.summary[0][1]).name == 'KAUST067.18S.DB_EUKARYOME_SSU.summary'
+            assert file(process.out.summary[0][1]).size() > 0
+            assert process.out.versions.size() == 1
+            assert path(process.out.versions[0]).readLines().any { line -> line.contains('mothur') }
+            assert snapshot(process.out).match()
+        }
+    }
+
+    test("KAUST067 | 18S | mothur classify | PR2_SSU") {
+        config "modules/local/mothur_classify/mothur_classify.test.config"
+        options "-dump-hashes"
+        tag 'slow'
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067', seq_type: '18S', database: 'PR2_SSU' ],
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.18s.fa', checkIfExists: true),
+                    '18S',
+                    file(params.pr2_ssu_fasta, checkIfExists: true),
+                    file(params.pr2_ssu_taxonomy, checkIfExists: true)
+                ]
+                """
+            }
+        }
+        then {
+            DebugUtils.printTree(process.out)
+            assert process.success
+            assert process.out.taxonomy.size() == 1
+            assert process.out.taxonomy[0][0].id == 'KAUST067'
+            assert file(process.out.taxonomy[0][1]).name == 'KAUST067.18S.DB_PR2_SSU.taxonomy'
+            assert file(process.out.taxonomy[0][1]).size() > 0
+            assert process.out.summary.size() == 1
+            assert process.out.summary[0][0].id == 'KAUST067'
+            assert file(process.out.summary[0][1]).name == 'KAUST067.18S.DB_PR2_SSU.summary'
+            assert file(process.out.summary[0][1]).size() > 0
+            assert process.out.versions.size() == 1
+            assert path(process.out.versions[0]).readLines().any { line -> line.contains('mothur') }
+            assert snapshot(process.out).match()
+        }
+    }
+
+    test("KAUST067 | 28S | mothur classify | EUKARYOME_LSU") {
+        config "modules/local/mothur_classify/mothur_classify.test.config"
+        options "-dump-hashes"
+        tag 'slow'
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067', seq_type: '28S', database: 'EUKARYOME_LSU' ],
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.28s.fa', checkIfExists: true),
+                    '28S',
+                    file(params.eukaryome_lsu_fasta, checkIfExists: true),
+                    file(params.eukaryome_lsu_taxonomy, checkIfExists: true)
+                ]
+                """
+            }
+        }
+        then {
+            DebugUtils.printTree(process.out)
+            assert process.success
+            assert process.out.taxonomy.size() == 1
+            assert process.out.taxonomy[0][0].id == 'KAUST067'
+            assert file(process.out.taxonomy[0][1]).name == 'KAUST067.28S.DB_EUKARYOME_LSU.taxonomy'
+            assert file(process.out.taxonomy[0][1]).size() > 0
+            assert process.out.summary.size() == 1
+            assert process.out.summary[0][0].id == 'KAUST067'
+            assert file(process.out.summary[0][1]).name == 'KAUST067.28S.DB_EUKARYOME_LSU.summary'
+            assert file(process.out.summary[0][1]).size() > 0
+            assert process.out.versions.size() == 1
+            assert path(process.out.versions[0]).readLines().any { line -> line.contains('mothur') }
+            assert snapshot(process.out).match()
+        }
+    }
+
+    test("KAUST067 | ITS1 | mothur classify | EUKARYOME_LONGREAD") {
+        config "modules/local/mothur_classify/mothur_classify.test.config"
+        options "-dump-hashes"
+        tag 'slow'
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067', seq_type: 'ITS1', database: 'EUKARYOME_LONGREAD' ],
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.ITS1.fasta', checkIfExists: true),
+                    'ITS1',
+                    file(params.eukaryome_longread_fasta, checkIfExists: true),
+                    file(params.eukaryome_longread_taxonomy, checkIfExists: true)
+                ]
+                """
+            }
+        }
+        then {
+            DebugUtils.printTree(process.out)
+            assert process.success
+            assert process.out.taxonomy.size() == 1
+            assert process.out.taxonomy[0][0].id == 'KAUST067'
+            assert file(process.out.taxonomy[0][1]).name == 'KAUST067.ITS1.DB_EUKARYOME_LONGREAD.taxonomy'
+            assert file(process.out.taxonomy[0][1]).size() > 0
+            assert process.out.summary.size() == 1
+            assert process.out.summary[0][0].id == 'KAUST067'
+            assert file(process.out.summary[0][1]).name == 'KAUST067.ITS1.DB_EUKARYOME_LONGREAD.summary'
+            assert file(process.out.summary[0][1]).size() > 0
+            assert process.out.versions.size() == 1
+            assert path(process.out.versions[0]).readLines().any { line -> line.contains('mothur') }
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // Additional tests for ITS2, 5_8S, 18S, 28S → EUKARYOME_LONGREAD are similar
+    // You can expand following the same pattern as above.
+
+    // =========================================================================
+    // STUB TESTS
+    // =========================================================================
+
+    test("stub | KAUST067 | ITS1 | mothur classify | EUKARYOME_ITS") {
+        tag "stub"
+        tag "fast"
+        options "-stub-run -dump-hashes"
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067', seq_type: 'ITS1', database: 'EUKARYOME_ITS' ],
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.ITS1.fasta', checkIfExists: true),
+                    'ITS1',
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.ITS1.fasta', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.ITS1.fasta', checkIfExists: true)
+                ]
+                """
+            }
+        }
+        then {
+            DebugUtils.printTree(process.out)
+            assert process.success
+            assert file(process.out.taxonomy[0][1]).size() == 0
+            assert file(process.out.summary[0][1]).size() == 0
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // Stub for ITS1
+    test("stub | KAUST067 | ITS1 | mothur classify | EUKARYOME_ITS") {
+        tag "stub"
+        tag "fast"
+        options "-stub-run -dump-hashes"
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067', seq_type: 'ITS1', database: 'EUKARYOME_ITS' ],
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.ITS1.fasta', checkIfExists: true),
+                    'ITS1',
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.ITS1.fasta', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.ITS1.fasta', checkIfExists: true)
+                ]
+                """
+            }
+        }
+        then {
+            DebugUtils.printTree(process.out)
+            assert process.success
+            assert file(process.out.taxonomy[0][1]).size() == 0
+            assert file(process.out.summary[0][1]).size() == 0
+            assert snapshot(process.out).match()
+        }
+    }
+
+    test("stub | KAUST067 | ITS1 | mothur classify | EUKARYOME_LONGREAD") {
+        tag "stub"
+        tag "fast"
+        options "-stub-run -dump-hashes"
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067', seq_type: 'ITS1', database: 'EUKARYOME_LONGREAD' ],
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.ITS1.fasta', checkIfExists: true),
+                    'ITS1',
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.ITS1.fasta', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.ITS1.fasta', checkIfExists: true)
+                ]
+                """
+            }
+        }
+        then {
+            DebugUtils.printTree(process.out)
+            assert process.success
+            assert file(process.out.taxonomy[0][1]).size() == 0
+            assert file(process.out.summary[0][1]).size() == 0
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // Stub for ITS2
+    test("stub | KAUST067 | ITS2 | mothur classify | EUKARYOME_ITS") {
+        tag "stub"
+        tag "fast"
+        options "-stub-run -dump-hashes"
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067', seq_type: 'ITS2', database: 'EUKARYOME_ITS' ],
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.ITS2.fasta', checkIfExists: true),
+                    'ITS2',
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.ITS2.fasta', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.ITS2.fasta', checkIfExists: true)
+                ]
+                """
+            }
+        }
+        then {
+            DebugUtils.printTree(process.out)
+            assert process.success
+            assert file(process.out.taxonomy[0][1]).size() == 0
+            assert file(process.out.summary[0][1]).size() == 0
+            assert snapshot(process.out).match()
+        }
+    }
+
+    test("stub | KAUST067 | ITS2 | mothur classify | EUKARYOME_LONGREAD") {
+        tag "stub"
+        tag "fast"
+        options "-stub-run -dump-hashes"
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067', seq_type: 'ITS2', database: 'EUKARYOME_LONGREAD' ],
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.ITS2.fasta', checkIfExists: true),
+                    'ITS2',
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.ITS2.fasta', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.ITS2.fasta', checkIfExists: true)
+                ]
+                """
+            }
+        }
+        then {
+            DebugUtils.printTree(process.out)
+            assert process.success
+            assert file(process.out.taxonomy[0][1]).size() == 0
+            assert file(process.out.summary[0][1]).size() == 0
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // Stub for 5_8S
+    test("stub | KAUST067 | 5_8S | mothur classify | EUKARYOME_ITS") {
+        tag "stub"
+        tag "fast"
+        options "-stub-run -dump-hashes"
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067', seq_type: '5_8S', database: 'EUKARYOME_ITS' ],
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.5_8s.fa', checkIfExists: true),
+                    '5_8S',
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.5_8s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.5_8s.fa', checkIfExists: true)
+                ]
+                """
+            }
+        }
+        then {
+            DebugUtils.printTree(process.out)
+            assert process.success
+            assert file(process.out.taxonomy[0][1]).size() == 0
+            assert file(process.out.summary[0][1]).size() == 0
+            assert snapshot(process.out).match()
+        }
+    }
+
+    test("stub | KAUST067 | 5_8S | mothur classify | EUKARYOME_LONGREAD") {
+        tag "stub"
+        tag "fast"
+        options "-stub-run -dump-hashes"
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067', seq_type: '5_8S', database: 'EUKARYOME_LONGREAD' ],
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.5_8s.fa', checkIfExists: true),
+                    '5_8S',
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.5_8s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.5_8s.fa', checkIfExists: true)
+                ]
+                """
+            }
+        }
+        then {
+            DebugUtils.printTree(process.out)
+            assert process.success
+            assert file(process.out.taxonomy[0][1]).size() == 0
+            assert file(process.out.summary[0][1]).size() == 0
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // Stub for 18S
+    test("stub | KAUST067 | 18S | mothur classify | EUKARYOME_SSU") {
+        tag "stub"
+        tag "fast"
+        options "-stub-run -dump-hashes"
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067', seq_type: '18S', database: 'EUKARYOME_SSU' ],
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.18s.fa', checkIfExists: true),
+                    '18S',
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.18s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.18s.fa', checkIfExists: true)
+                ]
+                """
+            }
+        }
+        then {
+            DebugUtils.printTree(process.out)
+            assert process.success
+            assert file(process.out.taxonomy[0][1]).size() == 0
+            assert file(process.out.summary[0][1]).size() == 0
+            assert snapshot(process.out).match()
+        }
+    }
+
+    test("stub | KAUST067 | 18S | mothur classify | PR2_SSU") {
+        tag "stub"
+        tag "fast"
+        options "-stub-run -dump-hashes"
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067', seq_type: '18S', database: 'PR2_SSU' ],
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.18s.fa', checkIfExists: true),
+                    '18S',
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.18s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.18s.fa', checkIfExists: true)
+                ]
+                """
+            }
+        }
+        then {
+            DebugUtils.printTree(process.out)
+            assert process.success
+            assert file(process.out.taxonomy[0][1]).size() == 0
+            assert file(process.out.summary[0][1]).size() == 0
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // Stub for 28S
+    test("stub | KAUST067 | 28S | mothur classify | EUKARYOME_LSU") {
+        tag "stub"
+        tag "fast"
+        options "-stub-run -dump-hashes"
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067', seq_type: '28S', database: 'EUKARYOME_LSU' ],
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.28s.fa', checkIfExists: true),
+                    '28S',
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.28s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.28s.fa', checkIfExists: true)
+                ]
+                """
+            }
+        }
+        then {
+            DebugUtils.printTree(process.out)
+            assert process.success
+            assert file(process.out.taxonomy[0][1]).size() == 0
+            assert file(process.out.summary[0][1]).size() == 0
+            assert snapshot(process.out).match()
+        }
+    }
+
+    test("stub | KAUST067 | 18S | mothur classify | EUKARYOME_LONGREAD") {
+        tag "stub"
+        tag "fast"
+        options "-stub-run -dump-hashes"
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067', seq_type: '18S', database: 'EUKARYOME_LONGREAD' ],
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.18s.fa', checkIfExists: true),
+                    '18S',
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.18s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.18s.fa', checkIfExists: true)
+                ]
+                """
+            }
+        }
+        then {
+            DebugUtils.printTree(process.out)
+            assert process.success
+            assert file(process.out.taxonomy[0][1]).size() == 0
+            assert file(process.out.summary[0][1]).size() == 0
+            assert snapshot(process.out).match()
+        }
+    }
+
+    test("stub | KAUST067 | 28S | mothur classify | EUKARYOME_LONGREAD") {
+        tag "stub"
+        tag "fast"
+        options "-stub-run -dump-hashes"
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067', seq_type: '28S', database: 'EUKARYOME_LONGREAD' ],
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.28s.fa', checkIfExists: true),
+                    '28S',
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.28s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.28s.fa', checkIfExists: true)
+                ]
+                """
+            }
+        }
+        then {
+            assert process.success
+            assert file(process.out.taxonomy[0][1]).size() == 0
+            assert file(process.out.summary[0][1]).size() == 0
+            assert snapshot(process.out).match()
+        }
+    }
+
+}

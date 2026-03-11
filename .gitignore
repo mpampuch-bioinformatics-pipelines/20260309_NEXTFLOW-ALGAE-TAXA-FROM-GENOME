@@ -459,3 +459,6 @@ element/
 node/
 edge/
 vertex/
+SAMPLES/
+.lineage/
+.nf-test-*

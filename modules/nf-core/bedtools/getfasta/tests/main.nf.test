@@ -4,9 +4,56 @@ nextflow_process {
     script "modules/nf-core/bedtools/getfasta/main.nf"
     process "BEDTOOLS_GETFASTA"
 
+    
+    test("KAUST070_purged | bedtools getfasta") {
+        tag "slow"
+        options "-dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST070_purged.18s' ],
+                    file("/ibex/project/c2303/20260309_NEXTFLOW-ALGAE-TAXA-FROM-GENOME/modules/nf-core/bedtools/getfasta/tests/TESTDATA/KAUST070.18s.bed")
+                ]
+                input[1] = file("/ibex/scratch/projects/c2303/20260309_NEXTFLOW-ALGAE-TAXA-FROM-GENOME/SAMPLES/KAUST070_purged.fa")
+                """
+            }
+        }
+
+        then {
+            DebugUtils.printTree(process.out)
+
+            assert process.success
+
+            assert process.out.fasta.size() == 1
+            def (meta, fastaPath) = process.out.fasta[0]
+            assert meta.id == 'KAUST070_purged.18s'
+
+            def fasta = path(fastaPath)
+            assert fasta.fileName.toString() == 'KAUST070_purged.18s.fa'
+
+            // Verify number of FASTA sequences matches BED entries
+            def bedPath = path("/ibex/scratch/projects/c2303/20260309_NEXTFLOW-ALGAE-TAXA-FROM-GENOME/OUTPUTS/20260311_results/KAUST070/bed_coordinates/KAUST070.18s.bed")
+            def bedLineCount = bedPath.readLines().size()
+            def fastaLines = fasta.readLines()
+            def fastaSeqCount = fastaLines.count { line -> line.startsWith('>') }
+            assert fastaSeqCount == bedLineCount
+
+            // Versions topic channel populated
+            assert process.out.versions_bedtools.size() == 1
+            def (proc, tool, ver) = process.out.versions_bedtools[0]
+            assert proc == 'BEDTOOLS_GETFASTA'
+            assert tool == 'bedtools'
+            assert ver ==~ /\d+\.\d+.*/
+
+            assert snapshot(process.out).match()
+        }
+
+    }
+
     // Test FASTA: single contig (ptg000342l_1, ~27 KB) extracted from KAUST067_purged genome.
     // All seven BED files have hits on this contig, making each test fully hermetic.
-
     test("KAUST067_purged | 16S rRNA | bedtools getfasta") {
         tag "fast"
         options "-dump-hashes"
@@ -35,6 +82,14 @@ nextflow_process {
 
             def fasta = path(fastaPath)
             assert fasta.fileName.toString() == 'KAUST067_purged.16s.fa'
+
+            // Verify number of FASTA sequences matches BED entries
+            def bedPath = path("${projectDir}/modules/nf-core/bedtools/getfasta/tests/TESTDATA/KAUST067_purged.16s.ptg000342l_1.bed")
+            def bedLineCount = bedPath.readLines().size()
+            assert bedLineCount == 15
+            def fastaLines = fasta.readLines()
+            def fastaSeqCount = fastaLines.count { line -> line.startsWith('>') }
+            assert fastaSeqCount == 15
 
             // FASTA is non-empty (15 BED entries → 15 sequences)
             def lines = fasta.readLines()

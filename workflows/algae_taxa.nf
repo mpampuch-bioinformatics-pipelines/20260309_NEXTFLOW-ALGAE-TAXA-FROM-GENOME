@@ -81,7 +81,7 @@ workflow ALGAE_TAXA {
         .mix(BARRNAP_BAC.out.gff)
         .mix(BARRNAP_ARC.out.gff)
         .mix(BARRNAP_MITO.out.gff)
-        .groupTuple()
+        .groupTuple(size: 4)
 
     COMBINE_GFF(
         ch_all_gffs
@@ -100,15 +100,41 @@ workflow ALGAE_TAXA {
     //
     // EXTRACT_BED emits [ meta, [bed1, bed2, ...] ] (one list of BED files per sample).
     // bedtools getfasta runs once per BED file, so we transpose to get
-    // [ meta, bed ] per-file tuples, then join the genome FASTA (bare path, no meta)
-    // as the second input channel.
+    // [ meta, bed ] per-file tuples.
     //
-    ch_bed_per_file = EXTRACT_BED.out.bed.transpose()
-    // [ meta, bed ] — one tuple per individual BED file
+    // We store the BED file stem (e.g. "KAUST067.18s") in meta.bed_stem so that
+    // modules.config can set  ext.prefix = { meta.bed_stem }  and each
+    // BEDTOOLS_GETFASTA call produces a distinctly-named output like "KAUST067.18s.fa".
+    // This preserves the rRNA type in the filename for downstream seq_type detection.
+    //
+    ch_bed_per_file = EXTRACT_BED.out.bed
+        .transpose()
+        .map { meta, bed ->
+            def stem = bed.name.replaceAll(/\.bed$/, '')  // e.g. "KAUST067.18s"
+            [meta + [bed_stem: stem], bed]
+        }
+    // [ meta(+bed_stem), bed ] — one tuple per individual BED file
+
+    // Pair each BED file with its own sample's genome fasta by joining on meta.id.
+    // This is critical: ch_genome is a queue channel (10 items), so passing it directly
+    // as the second input to BEDTOOLS_GETFASTA would zip it 1:1 with the 70 BED files,
+    // leaving 60 tasks without a fasta and silently dropping them.
+    // Instead we combine by sample ID so every BED file gets the correct genome.
+    ch_bed_genome = ch_bed_per_file
+        .map { meta, bed -> [meta.id, meta, bed] }
+        .combine(
+            ch_genome.map { meta, fasta -> [meta.id, fasta] },
+            by: 0
+        )
+        .map { _id, meta, bed, fasta -> [[meta, bed], fasta] }
+        .multiMap { bed_tuple, fasta ->
+            bed:   bed_tuple
+            fasta: fasta
+        }
 
     BEDTOOLS_GETFASTA(
-        ch_bed_per_file,
-        ch_genome.map { _meta, fasta -> fasta },
+        ch_bed_genome.bed,
+        ch_bed_genome.fasta,
     )
     ch_versions = ch_versions.mix(BEDTOOLS_GETFASTA.out.versions_bedtools.first())
 
@@ -136,41 +162,41 @@ workflow ALGAE_TAXA {
         // Prepare classification inputs by combining sequences with database info
         // Create a channel with all sequence/database combinations to classify
 
-        // Get extracted rRNA sequences from bedtools output
+        // Get extracted rRNA sequences from bedtools output.
+        // Each BEDTOOLS_GETFASTA call already emits a single [meta, fasta] tuple
+        // (no transpose needed). The filename stem is e.g. "KAUST067.18s.fa",
+        // so we detect the rRNA type from the BED stem stored in meta.bed_stem.
         def ch_rrna_for_classification = BEDTOOLS_GETFASTA.out.fasta
-            .transpose()
+            .filter { _meta, fasta -> fasta.size() > 0 }  // skip blank rRNA FASTA files
             .map { meta, fasta ->
-                def filename = fasta.name
                 def seq_type = null
+                def stem = meta.bed_stem ?: fasta.name  // e.g. "KAUST067.18s"
 
-                // Determine sequence type from filename
-                if (filename.contains('.18s.')) {
+                // Determine sequence type from the bed stem (lowercase rRNA type)
+                if (stem.endsWith('.18s')) {
                     seq_type = '18S'
                 }
-                else if (filename.contains('.28s.')) {
+                else if (stem.endsWith('.28s')) {
                     seq_type = '28S'
                 }
-                else if (filename.contains('.5_8s.')) {
+                else if (stem.endsWith('.5_8s')) {
                     seq_type = '5_8S'
                 }
-                else if (filename.contains('.16s.')) {
-                    seq_type = '16S'
-                }
-                else if (filename.contains('.23s.')) {
-                    seq_type = '23S'
-                }
+                // 16S / 23S / 12S / 5S are prokaryotic — skip for eukaryotic classification
 
                 return seq_type ? [meta, fasta, seq_type] : null
             }
-            .filter { it != null }
+            .filter { v -> v != null }
 
-        // Get ITS sequences from ITSx
-        def ch_its_for_classification = channel.empty()
-        if (params.organism_type == 'eukaryotic') {
-            def ch_its1 = ITSX.out.its1.map { meta, fasta -> [meta, fasta, 'ITS1'] }
-            def ch_its2 = ITSX.out.its2.map { meta, fasta -> [meta, fasta, 'ITS2'] }
-            ch_its_for_classification = ch_its1.mix(ch_its2)
-        }
+        // Get ITS sequences from ITSx (always eukaryotic here — outer guard ensures this)
+        // Filter out blank FASTA files — ITSx may produce empty output when no ITS is detected
+        def ch_its1 = ITSX.out.its1
+            .filter { _meta, fasta -> fasta.size() > 0 }
+            .map { meta, fasta -> [meta, fasta, 'ITS1'] }
+        def ch_its2 = ITSX.out.its2
+            .filter { _meta, fasta -> fasta.size() > 0 }
+            .map { meta, fasta -> [meta, fasta, 'ITS2'] }
+        def ch_its_for_classification = ch_its1.mix(ch_its2)
 
         // Combine all sequences for classification
         def ch_all_seqs = ch_rrna_for_classification.mix(ch_its_for_classification)
