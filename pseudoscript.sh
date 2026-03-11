@@ -78,7 +78,7 @@ bedtools getfasta -fi KAUST067_purged.fa -bed KAUST067_purged.5s.bed -fo KAUST06
 
 unset PERL5LIB
 unset PERLLIB
-ITSx -i KAUST067_purged.fa -o KAUST067_purged --cpu 32 -t G
+ITSx -i KAUST067_purged.fa -o KAUST067_purged --nhmmer T --cpu 32 -t G
 # Important outputs
 # KAUST067_purged.ITS1.fasta
 # KAUST067_purged.ITS2.fasta

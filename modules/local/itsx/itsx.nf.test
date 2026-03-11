@@ -1,0 +1,152 @@
+nextflow_process {
+
+    name "Test Process ITSX"
+    script "modules/local/itsx/itsx.nf"
+    process "ITSX"
+    tag "modules"
+    tag "modules_local"
+    tag "itsx"
+
+    // Test data: KAUST067_purged.fa (algae genome)
+    // ITSx runs on the full genome; outputs are optional depending on what sequences are found.
+    // organism_code in meta maps to the -t flag: 'G' = Chlorophyta (green algae)
+
+    // =========================================================================
+    // REAL TESTS
+    // =========================================================================
+
+    // POTENTIAL TODO: Find a more appropriate test data set for this module to increase the testing speed.
+    // Right now KAUST067 is a large genome and takes a long time to test.
+
+    test("KAUST067_purged | ITSx | green algae (-t G)") {
+        tag "slow"
+        options "-dump-hashes"
+        config "modules/local/itsx/itsx.test.config"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067', organism_code: 'G' ],
+                    file('/ibex/scratch/projects/c2303/20260309_NEXTFLOW-ALGAE-TAXA-FROM-GENOME/DATA/KAUST067_purged.fa', checkIfExists: true)
+                ]
+                """
+            }
+        }
+
+        then {
+            DebugUtils.printTree(process.out)
+
+            assert process.success
+
+            // summary.txt is the only non-optional output — must always be present
+            assert process.out.summary.size() == 1
+            assert process.out.summary[0][0].id == 'KAUST067'
+            assert file(process.out.summary[0][1]).name == 'KAUST067.summary.txt'
+            assert file(process.out.summary[0][1]).size() > 0
+
+            // versions.yml must be present
+            assert process.out.versions.size() == 1
+            assert path(process.out.versions[0]).readLines().any { line -> line.contains('itsx') }
+
+            // ITS1, ITS2, SSU, LSU, 5.8S, full, positions are optional —
+            // assert they are either absent (empty channel) or correctly named if present
+            process.out.its1.each { meta, fasta ->
+                assert meta.id == 'KAUST067'
+                assert file(fasta).name == 'KAUST067.ITS1.fasta'
+            }
+            process.out.its2.each { meta, fasta ->
+                assert meta.id == 'KAUST067'
+                assert file(fasta).name == 'KAUST067.ITS2.fasta'
+            }
+            process.out.ssu.each { meta, fasta ->
+                assert meta.id == 'KAUST067'
+                assert file(fasta).name == 'KAUST067.SSU.fasta'
+            }
+            process.out.lsu.each { meta, fasta ->
+                assert meta.id == 'KAUST067'
+                assert file(fasta).name == 'KAUST067.LSU.fasta'
+            }
+            process.out.s58.each { meta, fasta ->
+                assert meta.id == 'KAUST067'
+                assert file(fasta).name == 'KAUST067.5_8S.fasta'
+            }
+            process.out.full.each { meta, fasta ->
+                assert meta.id == 'KAUST067'
+                assert file(fasta).name == 'KAUST067.full.fasta'
+            }
+            process.out.positions.each { meta, txt ->
+                assert meta.id == 'KAUST067'
+                assert file(txt).name == 'KAUST067.positions.txt'
+            }
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // =========================================================================
+    // STUB TESTS
+    // =========================================================================
+
+    test("stub | KAUST067_purged | ITSx | green algae (-t G)") {
+        tag "stub"
+        tag "fast"
+        options "-stub-run -dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067', organism_code: 'G' ],
+                    file('/ibex/scratch/projects/c2303/20260309_NEXTFLOW-ALGAE-TAXA-FROM-GENOME/DATA/KAUST067_purged.fa', checkIfExists: true)
+                ]
+                """
+            }
+        }
+
+        then {
+            DebugUtils.printTree(process.out)
+
+            assert process.success
+
+            // Stub uses `touch` — all files present but empty
+            assert process.out.its1.size() == 1
+            assert process.out.its1[0][0].id == 'KAUST067'
+            assert file(process.out.its1[0][1]).name == 'KAUST067.ITS1.fasta'
+            assert file(process.out.its1[0][1]).size() == 0
+
+            assert process.out.its2.size() == 1
+            assert file(process.out.its2[0][1]).name == 'KAUST067.ITS2.fasta'
+            assert file(process.out.its2[0][1]).size() == 0
+
+            assert process.out.full.size() == 1
+            assert file(process.out.full[0][1]).name == 'KAUST067.full.fasta'
+            assert file(process.out.full[0][1]).size() == 0
+
+            assert process.out.ssu.size() == 1
+            assert file(process.out.ssu[0][1]).name == 'KAUST067.SSU.fasta'
+            assert file(process.out.ssu[0][1]).size() == 0
+
+            assert process.out.lsu.size() == 1
+            assert file(process.out.lsu[0][1]).name == 'KAUST067.LSU.fasta'
+            assert file(process.out.lsu[0][1]).size() == 0
+
+            assert process.out.s58.size() == 1
+            assert file(process.out.s58[0][1]).name == 'KAUST067.5_8S.fasta'
+            assert file(process.out.s58[0][1]).size() == 0
+
+            assert process.out.summary.size() == 1
+            assert file(process.out.summary[0][1]).name == 'KAUST067.summary.txt'
+            assert file(process.out.summary[0][1]).size() == 0
+
+            assert process.out.positions.size() == 1
+            assert file(process.out.positions[0][1]).name == 'KAUST067.positions.txt'
+            assert file(process.out.positions[0][1]).size() == 0
+
+            assert process.out.versions.size() == 1
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+}

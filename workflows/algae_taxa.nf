@@ -103,12 +103,12 @@ workflow ALGAE_TAXA {
     // [ meta, bed ] per-file tuples, then join the genome FASTA (bare path, no meta)
     // as the second input channel.
     //
-    ch_bed_per_file = EXTRACT_BED.out.bed
-        .transpose() // [ meta, bed ] — one tuple per individual BED file
+    ch_bed_per_file = EXTRACT_BED.out.bed.transpose()
+    // [ meta, bed ] — one tuple per individual BED file
 
     BEDTOOLS_GETFASTA(
-        ch_bed_per_file,                           // input[0]: tuple val(meta), path(bed)
-        ch_genome.map { _meta, fasta -> fasta }    // input[1]: path fasta (bare, no meta)
+        ch_bed_per_file,
+        ch_genome.map { _meta, fasta -> fasta },
     )
     ch_versions = ch_versions.mix(BEDTOOLS_GETFASTA.out.versions_bedtools.first())
 
@@ -116,9 +116,9 @@ workflow ALGAE_TAXA {
     // MODULE: Run ITSx for ITS extraction (only for eukaryotes)
     //
     if (params.organism_type == 'eukaryotic') {
-        // Add organism_type to meta for ITSx
+        // Add organism_code to meta for ITSx — 'G' = Chlorophyta (green algae)
         ch_genome_with_organism = ch_genome.map { meta, genome ->
-            def new_meta = meta + [organism_type: params.itsx_organism_code]
+            def new_meta = meta + [organism_code: 'G']
             [new_meta, genome]
         }
 
