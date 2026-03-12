@@ -4,20 +4,21 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { DECOMPRESS_GENOME       } from '../modules/local/decompress_genome/decompress_genome'
-include { BARRNAP as BARRNAP_EUK  } from '../modules/nf-core/barrnap/main'
-include { BARRNAP as BARRNAP_BAC  } from '../modules/nf-core/barrnap/main'
-include { BARRNAP as BARRNAP_ARC  } from '../modules/nf-core/barrnap/main'
-include { BARRNAP as BARRNAP_MITO } from '../modules/nf-core/barrnap/main'
-include { COMBINE_GFF             } from '../modules/local/combine_gff/combine_gff'
-include { EXTRACT_BED             } from '../modules/local/extract_bed/extract_bed'
-include { BEDTOOLS_GETFASTA       } from '../modules/nf-core/bedtools/getfasta/main'
-include { CLEAN_FASTA_HEADERS     } from '../modules/local/clean_fasta_headers/clean_fasta_headers'
-include { ITSX                    } from '../modules/local/itsx/itsx'
-include { BLAST_BLASTN            } from '../modules/nf-core/blast/blastn/main'
-include { BLAST_MAKEBLASTDB       } from '../modules/nf-core/blast/makeblastdb/main'
-include { MOTHUR_CLASSIFY         } from '../modules/local/mothur_classify/mothur_classify'
-include { paramsSummaryLog        } from 'plugin/nf-schema'
+include { DECOMPRESS_GENOME                    } from '../modules/local/decompress_genome/decompress_genome'
+include { BARRNAP as BARRNAP_EUK               } from '../modules/nf-core/barrnap/main'
+include { BARRNAP as BARRNAP_BAC               } from '../modules/nf-core/barrnap/main'
+include { BARRNAP as BARRNAP_ARC               } from '../modules/nf-core/barrnap/main'
+include { BARRNAP as BARRNAP_MITO              } from '../modules/nf-core/barrnap/main'
+include { COMBINE_GFF                          } from '../modules/local/combine_gff/combine_gff'
+include { EXTRACT_BED                          } from '../modules/local/extract_bed/extract_bed'
+include { BEDTOOLS_GETFASTA                    } from '../modules/nf-core/bedtools/getfasta/main'
+include { CLEAN_FASTA_HEADERS                  } from '../modules/local/clean_fasta_headers/clean_fasta_headers'
+include { ITSX                                 } from '../modules/local/itsx/itsx'
+include { BLAST_MAKEBLASTDB                    } from '../modules/nf-core/blast/makeblastdb/main'
+include { BLAST_BLASTN as BLAST_BLASTN_OUTFMT0 } from '../modules/nf-core/blast/blastn/main'
+include { BLAST_BLASTN as BLAST_BLASTN_OUTFMT6 } from '../modules/nf-core/blast/blastn/main'
+include { MOTHUR_CLASSIFY                      } from '../modules/local/mothur_classify/mothur_classify'
+include { paramsSummaryLog                     } from 'plugin/nf-schema'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -142,9 +143,10 @@ workflow ALGAE_TAXA {
     )
     ch_versions = ch_versions.mix(BEDTOOLS_GETFASTA.out.versions_bedtools.first())
 
+    // TODO: ADD A SEQKIT MODULE TO FILTER OUT ANY DUPLICATE READS
+
     //
-    // MODULE: Clean FASTA headers — remove the "::coords" suffix that bedtools
-    // --name appends and replace any remaining spaces with hyphens.
+    // MODULE: Clean FASTA headers — remove spaces to keep metadata about rRNA mapping in header
     //
     CLEAN_FASTA_HEADERS(
         BEDTOOLS_GETFASTA.out.fasta
@@ -169,6 +171,7 @@ workflow ALGAE_TAXA {
     // MODULE: Mothur classification for eukaryotic sequences
     //
     ch_classifications = channel.empty()
+    ch_blast_results = channel.empty()
 
     if (params.organism_type == 'eukaryotic' && params.run_mothur_classification) {
 
@@ -310,6 +313,72 @@ workflow ALGAE_TAXA {
         MOTHUR_CLASSIFY(ch_seq_with_dbs)
         ch_versions = ch_versions.mix(MOTHUR_CLASSIFY.out.versions.first())
         ch_classifications = MOTHUR_CLASSIFY.out.taxonomy.mix(MOTHUR_CLASSIFY.out.summary)
+
+        // TODO: ADD A MODULE TO SUMMARIZE THE MOTHUR RESULTS
+
+        //
+        // MODULE: Create BLAST databases and run BLASTN
+        //
+        // Collect unique reference FASTA files and create BLAST databases
+        def ch_unique_ref_fastas = ch_seq_with_dbs
+            .map { meta, fasta, seq_type, ref_fasta, ref_tax ->
+                // Create a unique identifier for each database
+                def db_meta = [id: ref_fasta.simpleName]
+                [db_meta, ref_fasta]
+            }
+            .unique { meta, ref_fasta -> meta.id }
+
+        // TODO: FIGURE OUT HOW TO CORRELATE TAXID INFO WITH BLASTDB OR BLAST RESULTS
+        // something like this
+        // awk 'BEGIN{FS="\t"} 
+        //      FNR==NR {tax[$1]=$2; next} 
+        //      /^>/ {id=substr($0,2); if(id in tax) print ">"id"__"tax[id]; else print $0; next} 
+        //      {print}' mothur_EUK_SSU_v2.0.tax mothur_EUK_SSU_v2.0.fasta
+
+        // Create BLAST databases
+        // TODO: FIGURE OUT WHY THIS IS STILL BEING ADDED TO YOUR OUTPUTS BUT ITS NOT IN PUBLISHDIR
+        BLAST_MAKEBLASTDB(ch_unique_ref_fastas)
+        ch_versions = ch_versions.mix(BLAST_MAKEBLASTDB.out.versions_makeblastdb.first())
+
+        // Prepare channel for BLASTN by combining query sequences with BLAST databases
+        // ch_seq_with_dbs emits: [meta, fasta, seq_type, ref_fasta, ref_tax]
+        // We need to match each query with its corresponding BLAST database
+        def ch_blast_input = ch_seq_with_dbs
+            .map { meta, fasta, seq_type, ref_fasta, ref_tax ->
+                def db_id = ref_fasta.simpleName
+                [db_id, meta, fasta]
+            }
+            .combine(
+                BLAST_MAKEBLASTDB.out.db.map { db_meta, db -> [db_meta.id, db] },
+                by: 0
+            )
+            .map { db_id, meta, fasta, db ->
+                [
+                    [meta, fasta],
+                    [meta, db],
+                ]
+            }
+
+        // Run BLASTN
+        BLAST_BLASTN_OUTFMT0(
+            ch_blast_input.map { ch_fa_and_db -> ch_fa_and_db[0] },
+            ch_blast_input.map { ch_fa_and_db -> ch_fa_and_db[1] },
+            [],
+            [],
+            [],
+        )
+        ch_versions = ch_versions.mix(BLAST_BLASTN_OUTFMT0.out.versions_blastn.first())
+        ch_blast_results = BLAST_BLASTN_OUTFMT0.out.txt
+
+        BLAST_BLASTN_OUTFMT6(
+            ch_blast_input.map { ch_fa_and_db -> ch_fa_and_db[0] },
+            ch_blast_input.map { ch_fa_and_db -> ch_fa_and_db[1] },
+            [],
+            [],
+            [],
+        )
+        ch_versions = ch_versions.mix(BLAST_BLASTN_OUTFMT6.out.versions_blastn.first())
+        ch_blast_results = BLAST_BLASTN_OUTFMT6.out.txt
     }
 
     emit:
@@ -321,5 +390,6 @@ workflow ALGAE_TAXA {
     ssu             = params.organism_type == 'eukaryotic' ? ITSX.out.ssu : channel.empty()
     lsu             = params.organism_type == 'eukaryotic' ? ITSX.out.lsu : channel.empty()
     classifications = ch_classifications // channel: [ val(meta), path(taxonomy/summary) ]
+    blast_results   = ch_blast_results // channel: [ val(meta), path(blast_txt) ]
     versions        = ch_versions // channel: [ path(versions) ]
 }
