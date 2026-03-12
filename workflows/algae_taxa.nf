@@ -318,34 +318,41 @@ workflow ALGAE_TAXA {
         // TODO: ADD A MODULE TO SUMMARIZE THE MOTHUR RESULTS
 
         //
-        // MODULE: Create BLAST databases and run BLASTN
+        // MODULE: Annotate reference databases with taxonomy before BLAST database creation
         //
-        // Collect unique reference FASTA files and create BLAST databases
-        def ch_unique_ref_fastas = ch_seq_with_dbs
-            .map { meta, fasta, seq_type, ref_fasta, ref_tax ->
+        // Collect unique reference FASTA files and their taxonomy files
+        def ch_unique_ref_fastas_with_tax = ch_seq_with_dbs
+            .map { _meta, _fasta, _seq_type, ref_fasta, ref_tax ->
                 // Create a unique identifier for each database
                 def db_meta = [id: ref_fasta.simpleName]
-                [db_meta, ref_fasta]
+                [db_meta, ref_fasta, ref_tax]
             }
-            .unique { meta, ref_fasta -> meta.id }
+            .unique { meta, _ref_fasta, _ref_tax -> meta.id }
 
-        // TODO: FIGURE OUT HOW TO CORRELATE TAXID INFO WITH BLASTDB OR BLAST RESULTS
-        // something like this
-        // awk 'BEGIN{FS="\t"} 
-        //      FNR==NR {tax[$1]=$2; next} 
-        //      /^>/ {id=substr($0,2); if(id in tax) print ">"id"__"tax[id]; else print $0; next} 
-        //      {print}' mothur_EUK_SSU_v2.0.tax mothur_EUK_SSU_v2.0.fasta
+        //
+        // MODULE: Append mothur taxonomy to database FASTA headers
+        //
+        // This annotates each database FASTA with taxonomy using the __ separator format.
+        // The annotated FASTAs are then used to create BLAST databases, allowing BLAST
+        // results to include taxonomy information in the subject IDs.
+        //
+        APPEND_MOTHUR_TAXONOMY_TO_DB(
+            ch_unique_ref_fastas_with_tax.map { meta, ref_fasta, _ref_tax -> [meta, ref_fasta] },
+            ch_unique_ref_fastas_with_tax.map { _meta, _ref_fasta, ref_tax -> ref_tax }
+        )
+        ch_versions = ch_versions.mix(APPEND_MOTHUR_TAXONOMY_TO_DB.out.versions.first())
 
-        // Create BLAST databases
-        // TODO: FIGURE OUT WHY THIS IS STILL BEING ADDED TO YOUR OUTPUTS BUT ITS NOT IN PUBLISHDIR
-        BLAST_MAKEBLASTDB(ch_unique_ref_fastas)
+        //
+        // MODULE: Create BLAST databases from annotated reference FASTAs
+        //
+        BLAST_MAKEBLASTDB(APPEND_MOTHUR_TAXONOMY_TO_DB.out.fasta)
         ch_versions = ch_versions.mix(BLAST_MAKEBLASTDB.out.versions_makeblastdb.first())
 
         // Prepare channel for BLASTN by combining query sequences with BLAST databases
         // ch_seq_with_dbs emits: [meta, fasta, seq_type, ref_fasta, ref_tax]
         // We need to match each query with its corresponding BLAST database
         def ch_blast_input = ch_seq_with_dbs
-            .map { meta, fasta, seq_type, ref_fasta, ref_tax ->
+            .map { meta, fasta, _seq_type, ref_fasta, _ref_tax ->
                 def db_id = ref_fasta.simpleName
                 [db_id, meta, fasta]
             }
@@ -353,7 +360,7 @@ workflow ALGAE_TAXA {
                 BLAST_MAKEBLASTDB.out.db.map { db_meta, db -> [db_meta.id, db] },
                 by: 0
             )
-            .map { db_id, meta, fasta, db ->
+            .map { _db_id, meta, fasta, db ->
                 [
                     [meta, fasta],
                     [meta, db],
