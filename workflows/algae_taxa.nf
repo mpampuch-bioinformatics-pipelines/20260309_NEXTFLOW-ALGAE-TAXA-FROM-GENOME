@@ -12,7 +12,10 @@ include { BARRNAP as BARRNAP_MITO } from '../modules/nf-core/barrnap/main'
 include { COMBINE_GFF             } from '../modules/local/combine_gff/combine_gff'
 include { EXTRACT_BED             } from '../modules/local/extract_bed/extract_bed'
 include { BEDTOOLS_GETFASTA       } from '../modules/nf-core/bedtools/getfasta/main'
+include { CLEAN_FASTA_HEADERS     } from '../modules/local/clean_fasta_headers/clean_fasta_headers'
 include { ITSX                    } from '../modules/local/itsx/itsx'
+include { BLAST_BLASTN            } from '../modules/nf-core/blast/blastn/main'
+include { BLAST_MAKEBLASTDB       } from '../modules/nf-core/blast/makeblastdb/main'
 include { MOTHUR_CLASSIFY         } from '../modules/local/mothur_classify/mothur_classify'
 include { paramsSummaryLog        } from 'plugin/nf-schema'
 
@@ -110,7 +113,8 @@ workflow ALGAE_TAXA {
     ch_bed_per_file = EXTRACT_BED.out.bed
         .transpose()
         .map { meta, bed ->
-            def stem = bed.name.replaceAll(/\.bed$/, '')  // e.g. "KAUST067.18s"
+            def stem = bed.name.replaceAll(/\.bed$/, '')
+            // e.g. "KAUST067.18s"
             [meta + [bed_stem: stem], bed]
         }
     // [ meta(+bed_stem), bed ] — one tuple per individual BED file
@@ -128,7 +132,7 @@ workflow ALGAE_TAXA {
         )
         .map { _id, meta, bed, fasta -> [[meta, bed], fasta] }
         .multiMap { bed_tuple, fasta ->
-            bed:   bed_tuple
+            bed: bed_tuple
             fasta: fasta
         }
 
@@ -137,6 +141,15 @@ workflow ALGAE_TAXA {
         ch_bed_genome.fasta,
     )
     ch_versions = ch_versions.mix(BEDTOOLS_GETFASTA.out.versions_bedtools.first())
+
+    //
+    // MODULE: Clean FASTA headers — remove the "::coords" suffix that bedtools
+    // --name appends and replace any remaining spaces with hyphens.
+    //
+    CLEAN_FASTA_HEADERS(
+        BEDTOOLS_GETFASTA.out.fasta
+    )
+    ch_versions = ch_versions.mix(CLEAN_FASTA_HEADERS.out.versions.first())
 
     //
     // MODULE: Run ITSx for ITS extraction (only for eukaryotes)
@@ -162,15 +175,16 @@ workflow ALGAE_TAXA {
         // Prepare classification inputs by combining sequences with database info
         // Create a channel with all sequence/database combinations to classify
 
-        // Get extracted rRNA sequences from bedtools output.
-        // Each BEDTOOLS_GETFASTA call already emits a single [meta, fasta] tuple
+        // Get extracted rRNA sequences from the cleaned bedtools output.
+        // Each CLEAN_FASTA_HEADERS call already emits a single [meta, fasta] tuple
         // (no transpose needed). The filename stem is e.g. "KAUST067.18s.fa",
         // so we detect the rRNA type from the BED stem stored in meta.bed_stem.
-        def ch_rrna_for_classification = BEDTOOLS_GETFASTA.out.fasta
-            .filter { _meta, fasta -> fasta.size() > 0 }  // skip blank rRNA FASTA files
+        def ch_rrna_for_classification = CLEAN_FASTA_HEADERS.out.fasta
+            .filter { _meta, fasta -> fasta.size() > 0 }
             .map { meta, fasta ->
                 def seq_type = null
-                def stem = meta.bed_stem ?: fasta.name  // e.g. "KAUST067.18s"
+                def stem = meta.bed_stem ?: fasta.name
+                // e.g. "KAUST067.18s"
 
                 // Determine sequence type from the bed stem (lowercase rRNA type)
                 if (stem.endsWith('.18s')) {
@@ -301,7 +315,7 @@ workflow ALGAE_TAXA {
     emit:
     gff             = COMBINE_GFF.out.gff // channel: [ val(meta), path(gff) ]
     bed             = EXTRACT_BED.out.bed // channel: [ val(meta), path(bed) ]
-    fasta           = BEDTOOLS_GETFASTA.out.fasta // channel: [ val(meta), path(fastas) ]
+    fasta           = CLEAN_FASTA_HEADERS.out.fasta // channel: [ val(meta), path(fastas) ]
     its1            = params.organism_type == 'eukaryotic' ? ITSX.out.its1 : channel.empty()
     its2            = params.organism_type == 'eukaryotic' ? ITSX.out.its2 : channel.empty()
     ssu             = params.organism_type == 'eukaryotic' ? ITSX.out.ssu : channel.empty()

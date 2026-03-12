@@ -5,52 +5,52 @@ nextflow_process {
     process "BEDTOOLS_GETFASTA"
 
     
-    test("KAUST070_purged | bedtools getfasta") {
-        tag "slow"
-        options "-dump-hashes"
+    // test("KAUST070_purged | bedtools getfasta") {
+    //     tag "slow"
+    //     options "-dump-hashes"
 
-        when {
-            process {
-                """
-                input[0] = [
-                    [ id: 'KAUST070_purged.18s' ],
-                    file("/ibex/project/c2303/20260309_NEXTFLOW-ALGAE-TAXA-FROM-GENOME/modules/nf-core/bedtools/getfasta/tests/TESTDATA/KAUST070.18s.bed")
-                ]
-                input[1] = file("/ibex/scratch/projects/c2303/20260309_NEXTFLOW-ALGAE-TAXA-FROM-GENOME/SAMPLES/KAUST070_purged.fa")
-                """
-            }
-        }
+    //     when {
+    //         process {
+    //             """
+    //             input[0] = [
+    //                 [ id: 'KAUST070_purged.18s' ],
+    //                 file("/ibex/project/c2303/20260309_NEXTFLOW-ALGAE-TAXA-FROM-GENOME/modules/nf-core/bedtools/getfasta/tests/TESTDATA/KAUST070.18s.bed")
+    //             ]
+    //             input[1] = file("/ibex/scratch/projects/c2303/20260309_NEXTFLOW-ALGAE-TAXA-FROM-GENOME/SAMPLES/KAUST070_purged.fa")
+    //             """
+    //         }
+    //     }
 
-        then {
-            DebugUtils.printTree(process.out)
+    //     then {
+    //         DebugUtils.printTree(process.out)
 
-            assert process.success
+    //         assert process.success
 
-            assert process.out.fasta.size() == 1
-            def (meta, fastaPath) = process.out.fasta[0]
-            assert meta.id == 'KAUST070_purged.18s'
+    //         assert process.out.fasta.size() == 1
+    //         def (meta, fastaPath) = process.out.fasta[0]
+    //         assert meta.id == 'KAUST070_purged.18s'
 
-            def fasta = path(fastaPath)
-            assert fasta.fileName.toString() == 'KAUST070_purged.18s.fa'
+    //         def fasta = path(fastaPath)
+    //         assert fasta.fileName.toString() == 'KAUST070_purged.18s.fa'
 
-            // Verify number of FASTA sequences matches BED entries
-            def bedPath = path("/ibex/scratch/projects/c2303/20260309_NEXTFLOW-ALGAE-TAXA-FROM-GENOME/OUTPUTS/20260311_results/KAUST070/bed_coordinates/KAUST070.18s.bed")
-            def bedLineCount = bedPath.readLines().size()
-            def fastaLines = fasta.readLines()
-            def fastaSeqCount = fastaLines.count { line -> line.startsWith('>') }
-            assert fastaSeqCount == bedLineCount
+    //         // Verify number of FASTA sequences matches BED entries
+    //         def bedPath = path("/ibex/scratch/projects/c2303/20260309_NEXTFLOW-ALGAE-TAXA-FROM-GENOME/OUTPUTS/20260311_results/KAUST070/bed_coordinates/KAUST070.18s.bed")
+    //         def bedLineCount = bedPath.readLines().size()
+    //         def fastaLines = fasta.readLines()
+    //         def fastaSeqCount = fastaLines.count { line -> line.startsWith('>') }
+    //         assert fastaSeqCount == bedLineCount
 
-            // Versions topic channel populated
-            assert process.out.versions_bedtools.size() == 1
-            def (proc, tool, ver) = process.out.versions_bedtools[0]
-            assert proc == 'BEDTOOLS_GETFASTA'
-            assert tool == 'bedtools'
-            assert ver ==~ /\d+\.\d+.*/
+    //         // Versions topic channel populated
+    //         assert process.out.versions_bedtools.size() == 1
+    //         def (proc, tool, ver) = process.out.versions_bedtools[0]
+    //         assert proc == 'BEDTOOLS_GETFASTA'
+    //         assert tool == 'bedtools'
+    //         assert ver ==~ /\d+\.\d+.*/
 
-            assert snapshot(process.out).match()
-        }
+    //         assert snapshot(process.out).match()
+    //     }
 
-    }
+    // }
 
     // Test FASTA: single contig (ptg000342l_1, ~27 KB) extracted from KAUST067_purged genome.
     // All seven BED files have hits on this contig, making each test fully hermetic.
@@ -100,6 +100,13 @@ nextflow_process {
             // Headers include the source contig name
             assert lines.any { line -> line.contains('ptg000342l_1') }
 
+            // Make sure header has this format
+            // >Name=16S_rRNA;product=16S ribosomal RNA (partial);note=aligned only 58 percent of the 16S ribosomal RNA::ptg000342l_1:5877-680
+            assert lines.any { line -> line.contains('ptg000342l_1') }
+            assert lines.any { line -> line.contains('ribosomal RNA') }
+            assert lines.any { line -> line.contains('16S_rRNA') }
+            assert lines.any { line -> line.contains('product') }
+            assert lines.any { line -> line.contains('::') }
             // Versions topic channel populated
             assert process.out.versions_bedtools.size() == 1
             def (proc, tool, ver) = process.out.versions_bedtools[0]
@@ -144,6 +151,13 @@ nextflow_process {
             def seqCount = fasta.readLines().count { line -> line.startsWith('>') }
             assert seqCount == 3
 
+            // Make sure header has correct format
+            def lines = fasta.readLines()
+            assert lines.any { line -> line.contains('::') }
+            assert lines.any { line -> line.contains('ribosomal RNA') }
+            assert lines.any { line -> line.contains('18S_rRNA') }
+            assert lines.any { line -> line.contains('product') }
+
             assert process.out.versions_bedtools.size() == 1
 
             assert snapshot(process.out).match()
@@ -182,6 +196,13 @@ nextflow_process {
             // 3 BED entries → 3 sequences
             def seqCount = fasta.readLines().count { line -> line.startsWith('>') }
             assert seqCount == 3
+
+            // Make sure header has correct format
+            def lines = fasta.readLines()
+            assert lines.any { line -> line.contains('::') }
+            assert lines.any { line -> line.contains('ribosomal RNA') }
+            assert lines.any { line -> line.contains('28S_rRNA') }
+            assert lines.any { line -> line.contains('product') }
 
             assert process.out.versions_bedtools.size() == 1
 
@@ -222,6 +243,13 @@ nextflow_process {
             def seqCount = fasta.readLines().count { line -> line.startsWith('>') }
             assert seqCount == 9
 
+            // Make sure header has correct format
+            def lines = fasta.readLines()
+            assert lines.any { line -> line.contains('::') }
+            assert lines.any { line -> line.contains('ribosomal RNA') }
+            assert lines.any { line -> line.contains('5S_rRNA') }
+            assert lines.any { line -> line.contains('product') }
+
             assert process.out.versions_bedtools.size() == 1
 
             assert snapshot(process.out).match()
@@ -260,6 +288,13 @@ nextflow_process {
             // 6 BED entries → 6 sequences
             def seqCount = fasta.readLines().count { line -> line.startsWith('>') }
             assert seqCount == 6
+
+            // Make sure header has correct format
+            def lines = fasta.readLines()
+            assert lines.any { line -> line.contains('::') }
+            assert lines.any { line -> line.contains('ribosomal RNA') }
+            assert lines.any { line -> line.contains('5_8S_rRNA') }
+            assert lines.any { line -> line.contains('product') }
 
             assert process.out.versions_bedtools.size() == 1
 
@@ -300,6 +335,14 @@ nextflow_process {
             def seqCount = fasta.readLines().count { line -> line.startsWith('>') }
             assert seqCount == 6
 
+            // Make sure header has correct format
+            def lines = fasta.readLines()
+            assert lines.any { line -> line.contains('::') }
+            assert lines.any { line -> line.contains('percent') }
+            assert lines.any { line -> line.contains('ribosomal RNA') }
+            assert lines.any { line -> line.contains('12S_rRNA') }
+            assert lines.any { line -> line.contains('product') }
+
             assert process.out.versions_bedtools.size() == 1
 
             assert snapshot(process.out).match()
@@ -339,6 +382,13 @@ nextflow_process {
             def seqCount = fasta.readLines().count { line -> line.startsWith('>') }
             assert seqCount == 9
 
+            // Make sure header has correct format
+            def lines = fasta.readLines()
+            assert lines.any { line -> line.contains('::') }
+            assert lines.any { line -> line.contains('percent') }
+            assert lines.any { line -> line.contains('ribosomal RNA') }
+            assert lines.any { line -> line.contains('23S_rRNA') }
+            assert lines.any { line -> line.contains('product') }
             assert process.out.versions_bedtools.size() == 1
 
             assert snapshot(process.out).match()

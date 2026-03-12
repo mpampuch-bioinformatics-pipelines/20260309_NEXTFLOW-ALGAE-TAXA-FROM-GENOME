@@ -28,6 +28,7 @@ process BEDTOOLS_GETFASTA {
     bedtools \\
         getfasta \\
         ${args} \\
+        -name \\
         -fi ${fasta} \\
         -bed ${bed} \\
         -fo ${prefix}.fa

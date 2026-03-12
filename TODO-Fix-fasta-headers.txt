@@ -1,0 +1,5 @@
+1. Change awk command in modules/local/extract_bed/extract_bed.nf to use `-F '\t'`
+
+2. Change bedtools getfasta command in modules/nf-core/bedtools/getfasta/main.nf to use `--name`
+
+3. Add a sed module to remove spaces from fasta headers (replace with -)

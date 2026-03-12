@@ -16,6 +16,7 @@ nextflow_process {
         config "modules/local/mothur_classify/mothur_classify.test.config"
         options "-dump-hashes"
         tag 'slow'
+        tag 'from_ITSx'
         when {
             process {
                 """
@@ -50,6 +51,7 @@ nextflow_process {
         config "modules/local/mothur_classify/mothur_classify.test.config"
         options "-dump-hashes"
         tag 'slow'
+        tag 'from_ITSx'
         when {
             process {
                 """
@@ -84,12 +86,13 @@ nextflow_process {
         config "modules/local/mothur_classify/mothur_classify.test.config"
         options "-dump-hashes"
         tag 'slow'
+        tag 'from_barrnap'
         when {
             process {
                 """
                 input[0] = [
                     [ id: 'KAUST067', seq_type: '5_8S', database: 'EUKARYOME_ITS' ],
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.5_8s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_5_8s.fa', checkIfExists: true),
                     '5_8S',
                     file(params.eukaryome_its_fasta, checkIfExists: true),
                     file(params.eukaryome_its_taxonomy, checkIfExists: true)
@@ -118,12 +121,13 @@ nextflow_process {
         config "modules/local/mothur_classify/mothur_classify.test.config"
         options "-dump-hashes"
         tag 'slow'
+        tag 'from_barrnap'
         when {
             process {
                 """
                 input[0] = [
                     [ id: 'KAUST067', seq_type: '18S', database: 'EUKARYOME_SSU' ],
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.18s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_18s.fa', checkIfExists: true),
                     '18S',
                     file(params.eukaryome_ssu_fasta, checkIfExists: true),
                     file(params.eukaryome_ssu_taxonomy, checkIfExists: true)
@@ -152,12 +156,13 @@ nextflow_process {
         config "modules/local/mothur_classify/mothur_classify.test.config"
         options "-dump-hashes"
         tag 'slow'
+        tag 'from_barrnap'
         when {
             process {
                 """
                 input[0] = [
                     [ id: 'KAUST067', seq_type: '18S', database: 'PR2_SSU' ],
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.18s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_18s.fa', checkIfExists: true),
                     '18S',
                     file(params.pr2_ssu_fasta, checkIfExists: true),
                     file(params.pr2_ssu_taxonomy, checkIfExists: true)
@@ -186,12 +191,13 @@ nextflow_process {
         config "modules/local/mothur_classify/mothur_classify.test.config"
         options "-dump-hashes"
         tag 'slow'
+        tag 'from_barrnap'
         when {
             process {
                 """
                 input[0] = [
                     [ id: 'KAUST067', seq_type: '28S', database: 'EUKARYOME_LSU' ],
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.28s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_28s.fa', checkIfExists: true),
                     '28S',
                     file(params.eukaryome_lsu_fasta, checkIfExists: true),
                     file(params.eukaryome_lsu_taxonomy, checkIfExists: true)
@@ -220,6 +226,7 @@ nextflow_process {
         config "modules/local/mothur_classify/mothur_classify.test.config"
         options "-dump-hashes"
         tag 'slow'
+        tag 'from_ITSx'
         when {
             process {
                 """
@@ -399,10 +406,10 @@ nextflow_process {
                 """
                 input[0] = [
                     [ id: 'KAUST067', seq_type: '5_8S', database: 'EUKARYOME_ITS' ],
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.5_8s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_5_8s.fa', checkIfExists: true),
                     '5_8S',
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.5_8s.fa', checkIfExists: true),
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.5_8s.fa', checkIfExists: true)
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_5_8s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_5_8s.fa', checkIfExists: true)
                 ]
                 """
             }
@@ -425,10 +432,10 @@ nextflow_process {
                 """
                 input[0] = [
                     [ id: 'KAUST067', seq_type: '5_8S', database: 'EUKARYOME_LONGREAD' ],
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.5_8s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_5_8s.fa', checkIfExists: true),
                     '5_8S',
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.5_8s.fa', checkIfExists: true),
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.5_8s.fa', checkIfExists: true)
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_5_8s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_5_8s.fa', checkIfExists: true)
                 ]
                 """
             }
@@ -452,10 +459,10 @@ nextflow_process {
                 """
                 input[0] = [
                     [ id: 'KAUST067', seq_type: '18S', database: 'EUKARYOME_SSU' ],
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.18s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_18s.fa', checkIfExists: true),
                     '18S',
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.18s.fa', checkIfExists: true),
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.18s.fa', checkIfExists: true)
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_18s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_18s.fa', checkIfExists: true)
                 ]
                 """
             }
@@ -478,10 +485,10 @@ nextflow_process {
                 """
                 input[0] = [
                     [ id: 'KAUST067', seq_type: '18S', database: 'PR2_SSU' ],
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.18s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_18s.fa', checkIfExists: true),
                     '18S',
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.18s.fa', checkIfExists: true),
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.18s.fa', checkIfExists: true)
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_18s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_18s.fa', checkIfExists: true)
                 ]
                 """
             }
@@ -505,10 +512,10 @@ nextflow_process {
                 """
                 input[0] = [
                     [ id: 'KAUST067', seq_type: '28S', database: 'EUKARYOME_LSU' ],
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.28s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_28s.fa', checkIfExists: true),
                     '28S',
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.28s.fa', checkIfExists: true),
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.28s.fa', checkIfExists: true)
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_28s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_28s.fa', checkIfExists: true)
                 ]
                 """
             }
@@ -531,10 +538,10 @@ nextflow_process {
                 """
                 input[0] = [
                     [ id: 'KAUST067', seq_type: '18S', database: 'EUKARYOME_LONGREAD' ],
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.18s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_18s.fa', checkIfExists: true),
                     '18S',
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.18s.fa', checkIfExists: true),
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.18s.fa', checkIfExists: true)
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_18s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_18s.fa', checkIfExists: true)
                 ]
                 """
             }
@@ -557,10 +564,10 @@ nextflow_process {
                 """
                 input[0] = [
                     [ id: 'KAUST067', seq_type: '28S', database: 'EUKARYOME_LONGREAD' ],
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.28s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_28s.fa', checkIfExists: true),
                     '28S',
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.28s.fa', checkIfExists: true),
-                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_purged.28s.fa', checkIfExists: true)
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_28s.fa', checkIfExists: true),
+                    file('${projectDir}/modules/local/mothur_classify/TESTDATA/KAUST067_28s.fa', checkIfExists: true)
                 ]
                 """
             }

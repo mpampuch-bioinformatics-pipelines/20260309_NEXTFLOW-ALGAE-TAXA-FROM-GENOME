@@ -34,22 +34,22 @@ cat KAUST067_purged.bac.rRNA.gff \
 # 28S_rRNA
 # 5_8S_rRNA
 # 5S_rRNA
-awk '$9 ~ /12S/ {print $1"\t"$4-1"\t"$5"\t"$9}' "KAUST067_purged.all.rRNA.gff" > "KAUST067_purged.12s.bed"
-awk '$9 ~ /16S/ {print $1"\t"$4-1"\t"$5"\t"$9}' "KAUST067_purged.all.rRNA.gff" > "KAUST067_purged.16s.bed"
-awk '$9 ~ /18S/ {print $1"\t"$4-1"\t"$5"\t"$9}' "KAUST067_purged.all.rRNA.gff" > "KAUST067_purged.18s.bed"
-awk '$9 ~ /23S/ {print $1"\t"$4-1"\t"$5"\t"$9}' "KAUST067_purged.all.rRNA.gff" > "KAUST067_purged.23s.bed"
-awk '$9 ~ /28S/ {print $1"\t"$4-1"\t"$5"\t"$9}' "KAUST067_purged.all.rRNA.gff" > "KAUST067_purged.28s.bed"
-awk '$9 ~ /5_8S/ {print $1"\t"$4-1"\t"$5"\t"$9}' "KAUST067_purged.all.rRNA.gff" > "KAUST067_purged.5_8s.bed"
-awk '$9 ~ /5S/ {print $1"\t"$4-1"\t"$5"\t"$9}' "KAUST067_purged.all.rRNA.gff" > "KAUST067_purged.5s.bed"
+awk 'BEGIN {FS="\t"} $9 ~ /12S/ {print $1"\t"$4-1"\t"$5"\t"$9}' "KAUST067_purged.all.rRNA.gff" > "KAUST067_purged.12s.bed"
+awk 'BEGIN {FS="\t"} $9 ~ /16S/ {print $1"\t"$4-1"\t"$5"\t"$9}' "KAUST067_purged.all.rRNA.gff" > "KAUST067_purged.16s.bed"
+awk 'BEGIN {FS="\t"} $9 ~ /18S/ {print $1"\t"$4-1"\t"$5"\t"$9}' "KAUST067_purged.all.rRNA.gff" > "KAUST067_purged.18s.bed"
+awk 'BEGIN {FS="\t"} $9 ~ /23S/ {print $1"\t"$4-1"\t"$5"\t"$9}' "KAUST067_purged.all.rRNA.gff" > "KAUST067_purged.23s.bed"
+awk 'BEGIN {FS="\t"} $9 ~ /28S/ {print $1"\t"$4-1"\t"$5"\t"$9}' "KAUST067_purged.all.rRNA.gff" > "KAUST067_purged.28s.bed"
+awk 'BEGIN {FS="\t"} $9 ~ /5_8S/ {print $1"\t"$4-1"\t"$5"\t"$9}' "KAUST067_purged.all.rRNA.gff" > "KAUST067_purged.5_8s.bed"
+awk 'BEGIN {FS="\t"} $9 ~ /5S/ {print $1"\t"$4-1"\t"$5"\t"$9}' "KAUST067_purged.all.rRNA.gff" > "KAUST067_purged.5s.bed"
 
 # Step 4: Use bedtools to extract the sequences from the FASTA files
-bedtools getfasta -fi KAUST067_purged.fa -bed KAUST067_purged.12s.bed -fo KAUST067_purged.12s.fa
-bedtools getfasta -fi KAUST067_purged.fa -bed KAUST067_purged.16s.bed -fo KAUST067_purged.16s.fa
-bedtools getfasta -fi KAUST067_purged.fa -bed KAUST067_purged.18s.bed -fo KAUST067_purged.18s.fa
-bedtools getfasta -fi KAUST067_purged.fa -bed KAUST067_purged.23s.bed -fo KAUST067_purged.23s.fa
-bedtools getfasta -fi KAUST067_purged.fa -bed KAUST067_purged.28s.bed -fo KAUST067_purged.28s.fa
-bedtools getfasta -fi KAUST067_purged.fa -bed KAUST067_purged.5_8s.bed -fo KAUST067_purged.5_8s.fa
-bedtools getfasta -fi KAUST067_purged.fa -bed KAUST067_purged.5s.bed -fo KAUST067_purged.5s.fa
+bedtools getfasta -name -fi KAUST067_purged.fa -bed KAUST067_purged.12s.bed -fo KAUST067_purged.12s.fa
+bedtools getfasta -name -fi KAUST067_purged.fa -bed KAUST067_purged.16s.bed -fo KAUST067_purged.16s.fa
+bedtools getfasta -name -fi KAUST067_purged.fa -bed KAUST067_purged.18s.bed -fo KAUST067_purged.18s.fa
+bedtools getfasta -name -fi KAUST067_purged.fa -bed KAUST067_purged.23s.bed -fo KAUST067_purged.23s.fa
+bedtools getfasta -name -fi KAUST067_purged.fa -bed KAUST067_purged.28s.bed -fo KAUST067_purged.28s.fa
+bedtools getfasta -name -fi KAUST067_purged.fa -bed KAUST067_purged.5_8s.bed -fo KAUST067_purged.5_8s.fa
+bedtools getfasta -name -fi KAUST067_purged.fa -bed KAUST067_purged.5s.bed -fo KAUST067_purged.5s.fa
 
 # Step 5: Use ITSx to extract the ITS sequences from the genomes
 # Character code Full name Alternative name

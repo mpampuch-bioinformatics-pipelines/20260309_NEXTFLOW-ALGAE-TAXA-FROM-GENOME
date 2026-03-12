@@ -1,0 +1,695 @@
+nextflow_process {
+
+    name "Test Process CLEAN_FASTA_HEADERS"
+    script "modules/local/clean_fasta_headers/clean_fasta_headers.nf"
+    process "CLEAN_FASTA_HEADERS"
+
+    // All TESTDATA files are real bedtools --name output from KAUST067_purged genome:
+    //   KAUST067_purged.5s.fa    — 9 records, 2 spaces/header  (product only)
+    //   KAUST067_purged.5_8s.fa  — 6 records, 2 spaces/header  (product only)
+    //   KAUST067_purged.12s.fa   — 6 records, 11 spaces/header (product + note)
+    //   KAUST067_purged.16s.fa   — 15 records, 11 spaces/header (product + note)
+    //   KAUST067_purged.18s.fa   — 3 records, 2 spaces/header  (product only)
+    //   KAUST067_purged.23s.fa   — 9 records, mixed 2/8 spaces (some have note field)
+    //   KAUST067_purged.28s.fa   — 3 records, 2 spaces/header  (product only)
+    //
+    // The module: awk '/^>/ { gsub(/ /,"-") } 1'
+    //   → replaces ALL spaces in FASTA header lines with hyphens
+    //   → sequence lines are passed through unchanged
+
+    // =========================================================================
+    // REAL TESTS
+    // =========================================================================
+
+    // -------------------------------------------------------------------------
+    // 1. Basic correctness: short rRNA with simple "product" field (2 spaces)
+    // -------------------------------------------------------------------------
+
+    test("5S rRNA FASTA | 9 headers each with 2 spaces replaced by hyphens") {
+        tag "fast"
+        options "-dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067_5s' ],
+                    file("${projectDir}/modules/local/clean_fasta_headers/TESTDATA/KAUST067_purged.5s.fa")
+                ]
+                """
+            }
+        }
+
+        then {
+            DebugUtils.printTree(process.out)
+
+            assert process.success
+
+            // Exactly one output tuple
+            assert process.out.fasta.size() == 1
+            def (meta, fastaFile) = process.out.fasta[0]
+
+            // Meta passthrough
+            assert meta.id == 'KAUST067_5s'
+
+            // Output filename uses the sample id prefix
+            assert path(fastaFile).fileName.toString() == 'KAUST067_5s.fa'
+
+            // File is non-empty
+            assert path(fastaFile).size() > 0
+
+            def lines = path(fastaFile).readLines()
+            def headerLines = lines.findAll { line -> line.startsWith('>') }
+            def seqLines    = lines.findAll { line -> !line.startsWith('>') && !line.isEmpty() }
+
+            // Correct number of records (9 sequences)
+            assert headerLines.size() == 9
+
+            // No header contains a space
+            headerLines.each { h ->
+                assert !h.contains(' ') : "Space found in header: ${h}"
+            }
+
+            // Every original space was replaced with a hyphen
+            // Original: ">Name=5S_rRNA;product=5S ribosomal RNA::..."
+            // Expected: ">Name=5S_rRNA;product=5S-ribosomal-RNA::..."
+            headerLines.each { h ->
+                assert h.contains('-') : "Expected hyphens in header: ${h}"
+            }
+
+            // Known transformed header (first record)
+            assert headerLines[0] == '>Name=5S_rRNA;product=5S-ribosomal-RNA::ptg000342l_1:1398-1511'
+
+            // Sequence lines are pure nucleotides — no modification
+            seqLines.each { s ->
+                assert s ==~ /[ACGTacgtNn]+/ : "Sequence line was unexpectedly modified: ${s}"
+            }
+
+            // Versions output is present
+            assert process.out.versions.size() == 1
+            def versionsYml = path(process.out.versions[0])
+            assert versionsYml.text.contains('CLEAN_FASTA_HEADERS')
+            assert versionsYml.text.contains('awk')
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 2. Product-only spaces: 5.8S rRNA (6 records, 2 spaces/header)
+    // -------------------------------------------------------------------------
+
+    test("5.8S rRNA FASTA | 6 headers with product-field spaces replaced") {
+        tag "fast"
+        options "-dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067_5_8s' ],
+                    file("${projectDir}/modules/local/clean_fasta_headers/TESTDATA/KAUST067_purged.5_8s.fa")
+                ]
+                """
+            }
+        }
+
+        then {
+            DebugUtils.printTree(process.out)
+
+            assert process.success
+
+            assert process.out.fasta.size() == 1
+            def (meta, fastaFile) = process.out.fasta[0]
+
+            assert meta.id == 'KAUST067_5_8s'
+            assert path(fastaFile).fileName.toString() == 'KAUST067_5_8s.fa'
+            assert path(fastaFile).size() > 0
+
+            def lines = path(fastaFile).readLines()
+            def headerLines = lines.findAll { line -> line.startsWith('>') }
+            def seqLines    = lines.findAll { line -> !line.startsWith('>') && !line.isEmpty() }
+
+            // 6 records
+            assert headerLines.size() == 6
+
+            // No spaces remain in any header
+            headerLines.each { h ->
+                assert !h.contains(' ') : "Space found in header: ${h}"
+            }
+
+            // Known transformed header
+            // Original: ">Name=5_8S_rRNA;product=5.8S ribosomal RNA::ptg000342l_1:5513-5665"
+            assert headerLines[0] == '>Name=5_8S_rRNA;product=5.8S-ribosomal-RNA::ptg000342l_1:5513-5665'
+
+            // Sequence lines are unmodified
+            seqLines.each { s ->
+                assert s ==~ /[ACGTacgtNn]+/ : "Sequence line unexpectedly modified: ${s}"
+            }
+
+            assert process.out.versions.size() == 1
+            assert path(process.out.versions[0]).text.contains('CLEAN_FASTA_HEADERS')
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 3. Many spaces: 12S rRNA (6 records, 11 spaces/header — product + note)
+    // -------------------------------------------------------------------------
+
+    test("12S rRNA FASTA | headers with 11 spaces each (product and note fields)") {
+        tag "fast"
+        options "-dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067_12s' ],
+                    file("${projectDir}/modules/local/clean_fasta_headers/TESTDATA/KAUST067_purged.12s.fa")
+                ]
+                """
+            }
+        }
+
+        then {
+            DebugUtils.printTree(process.out)
+
+            assert process.success
+
+            assert process.out.fasta.size() == 1
+            def (meta, fastaFile) = process.out.fasta[0]
+
+            assert meta.id == 'KAUST067_12s'
+            assert path(fastaFile).fileName.toString() == 'KAUST067_12s.fa'
+
+            def lines = path(fastaFile).readLines()
+            def headerLines = lines.findAll { line -> line.startsWith('>') }
+            def seqLines    = lines.findAll { line -> !line.startsWith('>') && !line.isEmpty() }
+
+            // 6 records
+            assert headerLines.size() == 6
+
+            // No spaces remain
+            headerLines.each { h ->
+                assert !h.contains(' ') : "Space found in header: ${h}"
+            }
+
+            // Each header originally had 11 spaces → 11 hyphens introduced
+            headerLines.each { h ->
+                def hyphenCount = h.count('-')
+                // The coordinate range (e.g. :5887-6133) contributes 1 hyphen that was already there,
+                // so we expect at least 11 from replaced spaces
+                assert hyphenCount >= 11 : "Expected >= 11 hyphens in header but found ${hyphenCount}: ${h}"
+            }
+
+            // Known transformed header (first record, 25-percent variant)
+            // Original: ">Name=12S_rRNA;product=12S ribosomal RNA (partial);note=aligned only 25 percent of the 12S ribosomal RNA::ptg000342l_1:5887-6133"
+            def expected0 = '>Name=12S_rRNA;product=12S-ribosomal-RNA-(partial);note=aligned-only-25-percent-of-the-12S-ribosomal-RNA::ptg000342l_1:5887-6133'
+            assert headerLines[0] == expected0
+
+            // Sequence lines are unmodified
+            seqLines.each { s ->
+                assert s ==~ /[ACGTacgtNn]+/ : "Sequence line unexpectedly modified: ${s}"
+            }
+
+            assert process.out.versions.size() == 1
+            assert path(process.out.versions[0]).text.contains('awk')
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 4. Largest file: 16S rRNA (15 records, 11 spaces/header)
+    // -------------------------------------------------------------------------
+
+    test("16S rRNA FASTA | 15 records with 11 spaces per header") {
+        tag "fast"
+        options "-dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067_16s' ],
+                    file("${projectDir}/modules/local/clean_fasta_headers/TESTDATA/KAUST067_purged.16s.fa")
+                ]
+                """
+            }
+        }
+
+        then {
+            DebugUtils.printTree(process.out)
+
+            assert process.success
+
+            assert process.out.fasta.size() == 1
+            def (meta, fastaFile) = process.out.fasta[0]
+
+            assert meta.id == 'KAUST067_16s'
+            assert path(fastaFile).fileName.toString() == 'KAUST067_16s.fa'
+            assert path(fastaFile).size() > 0
+
+            def lines = path(fastaFile).readLines()
+            def headerLines = lines.findAll { line -> line.startsWith('>') }
+            def seqLines    = lines.findAll { line -> !line.startsWith('>') && !line.isEmpty() }
+
+            // 15 records
+            assert headerLines.size() == 15
+
+            // No spaces in any header
+            headerLines.each { h ->
+                assert !h.contains(' ') : "Space found in header: ${h}"
+            }
+
+            // All headers now contain hyphens (from replaced spaces)
+            headerLines.each { h ->
+                assert h.contains('-') : "Expected hyphens in header: ${h}"
+            }
+
+            // Sequence lines unmodified
+            seqLines.each { s ->
+                assert s ==~ /[ACGTacgtNn]+/ : "Sequence line unexpectedly modified: ${s}"
+            }
+
+            // Record count equals sequence count (no orphan headers)
+            assert headerLines.size() == seqLines.size()
+
+            assert process.out.versions.size() == 1
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 5. 18S rRNA — identical product-field pattern but eukaryotic marker gene
+    // -------------------------------------------------------------------------
+
+    test("18S rRNA FASTA | 3 records, spaces in product field only") {
+        tag "fast"
+        options "-dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067_18s' ],
+                    file("${projectDir}/modules/local/clean_fasta_headers/TESTDATA/KAUST067_purged.18s.fa")
+                ]
+                """
+            }
+        }
+
+        then {
+            DebugUtils.printTree(process.out)
+
+            assert process.success
+
+            assert process.out.fasta.size() == 1
+            def (meta, fastaFile) = process.out.fasta[0]
+
+            assert meta.id == 'KAUST067_18s'
+            assert path(fastaFile).fileName.toString() == 'KAUST067_18s.fa'
+
+            def lines = path(fastaFile).readLines()
+            def headerLines = lines.findAll { line -> line.startsWith('>') }
+            def seqLines    = lines.findAll { line -> !line.startsWith('>') && !line.isEmpty() }
+
+            // 3 records
+            assert headerLines.size() == 3
+            assert seqLines.size() == 3
+
+            // No spaces remain
+            headerLines.each { h ->
+                assert !h.contains(' ') : "Space found in header: ${h}"
+            }
+
+            // Known transformation
+            // Original: ">Name=18S_rRNA;product=18S ribosomal RNA::ptg000342l_1:5875-7669"
+            assert headerLines[0] == '>Name=18S_rRNA;product=18S-ribosomal-RNA::ptg000342l_1:5875-7669'
+            assert headerLines[1] == '>Name=18S_rRNA;product=18S-ribosomal-RNA::ptg000342l_1:14388-16182'
+            assert headerLines[2] == '>Name=18S_rRNA;product=18S-ribosomal-RNA::ptg000342l_1:22900-24694'
+
+            // Sequence lines are long (>1000 nt) and unmodified
+            seqLines.each { s ->
+                assert s.length() > 100 : "Unexpected short sequence: ${s.length()} nt"
+                assert s ==~ /[ACGTacgtNn]+/ : "Sequence line unexpectedly modified: ${s}"
+            }
+
+            assert process.out.versions.size() == 1
+            def versionsYml = path(process.out.versions[0])
+            assert versionsYml.text.contains('CLEAN_FASTA_HEADERS')
+            assert versionsYml.text.contains('awk')
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 6. Mixed space counts: 23S rRNA
+    //    First 3 records: 2 spaces (product only)
+    //    Last 6 records:  8 spaces (product + partial + note)
+    // -------------------------------------------------------------------------
+
+    test("23S rRNA FASTA | 9 records with mixed space counts per header") {
+        tag "fast"
+        options "-dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067_23s' ],
+                    file("${projectDir}/modules/local/clean_fasta_headers/TESTDATA/KAUST067_purged.23s.fa")
+                ]
+                """
+            }
+        }
+
+        then {
+            DebugUtils.printTree(process.out)
+
+            assert process.success
+
+            assert process.out.fasta.size() == 1
+            def (meta, fastaFile) = process.out.fasta[0]
+
+            assert meta.id == 'KAUST067_23s'
+            assert path(fastaFile).fileName.toString() == 'KAUST067_23s.fa'
+
+            def lines = path(fastaFile).readLines()
+            def headerLines = lines.findAll { line -> line.startsWith('>') }
+            def seqLines    = lines.findAll { line -> !line.startsWith('>') && !line.isEmpty() }
+
+            // 9 records
+            assert headerLines.size() == 9
+
+            // No spaces in any header
+            headerLines.each { h ->
+                assert !h.contains(' ') : "Space found in header: ${h}"
+            }
+
+            // Full-length 23S headers (first 3) — 2 original spaces
+            // Original: ">Name=23S_rRNA;product=23S ribosomal RNA::ptg000342l_1:2162-5257"
+            assert headerLines[0] == '>Name=23S_rRNA;product=23S-ribosomal-RNA::ptg000342l_1:2162-5257'
+
+            // Partial 23S headers (records 4–9) — 8 original spaces
+            // Original: ">Name=23S_rRNA;product=23S ribosomal RNA (partial);note=aligned only 32 percent of the 23S ribosomal RNA::ptg000342l_1:2157-3192"
+            def expected3 = '>Name=23S_rRNA;product=23S-ribosomal-RNA-(partial);note=aligned-only-32-percent-of-the-23S-ribosomal-RNA::ptg000342l_1:2157-3192'
+            assert headerLines[3] == expected3
+
+            // Sequence lines unmodified
+            seqLines.each { s ->
+                assert s ==~ /[ACGTacgtNn]+/ : "Sequence line unexpectedly modified: ${s}"
+            }
+
+            assert process.out.versions.size() == 1
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 7. 28S rRNA — large sequences (>3 kb), 3 records, 2 spaces/header
+    // -------------------------------------------------------------------------
+
+    test("28S rRNA FASTA | 3 long records (>3 kb), spaces in product field") {
+        tag "fast"
+        options "-dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067_28s' ],
+                    file("${projectDir}/modules/local/clean_fasta_headers/TESTDATA/KAUST067_purged.28s.fa")
+                ]
+                """
+            }
+        }
+
+        then {
+            DebugUtils.printTree(process.out)
+
+            assert process.success
+
+            assert process.out.fasta.size() == 1
+            def (meta, fastaFile) = process.out.fasta[0]
+
+            assert meta.id == 'KAUST067_28s'
+            assert path(fastaFile).fileName.toString() == 'KAUST067_28s.fa'
+            assert path(fastaFile).size() > 0
+
+            def lines = path(fastaFile).readLines()
+            def headerLines = lines.findAll { line -> line.startsWith('>') }
+            def seqLines    = lines.findAll { line -> !line.startsWith('>') && !line.isEmpty() }
+
+            // 3 records
+            assert headerLines.size() == 3
+            assert seqLines.size() == 3
+
+            // No spaces remain
+            headerLines.each { h ->
+                assert !h.contains(' ') : "Space found in header: ${h}"
+            }
+
+            // Known transformations for all 3 headers
+            assert headerLines[0] == '>Name=28S_rRNA;product=28S-ribosomal-RNA::ptg000342l_1:1937-5670'
+            assert headerLines[1] == '>Name=28S_rRNA;product=28S-ribosomal-RNA::ptg000342l_1:10450-14183'
+            assert headerLines[2] == '>Name=28S_rRNA;product=28S-ribosomal-RNA::ptg000342l_1:18962-22695'
+
+            // Each sequence is long (28S rRNA is ~3700 nt)
+            seqLines.each { s ->
+                assert s.length() > 500 : "Unexpectedly short 28S sequence: ${s.length()} nt"
+                assert s ==~ /[ACGTacgtNn]+/ : "Sequence line unexpectedly modified: ${s}"
+            }
+
+            assert process.out.versions.size() == 1
+            def versionsYml = path(process.out.versions[0])
+            assert versionsYml.text.contains('CLEAN_FASTA_HEADERS')
+            assert versionsYml.text.contains('awk')
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 8. Meta id is preserved exactly through all marker gene types
+    //    (Parameterised-style: run each TESTDATA file and verify meta passthrough)
+    // -------------------------------------------------------------------------
+
+    test("meta.id passthrough preserved for 5S rRNA sample") {
+        tag "fast"
+        options "-dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'my_special_sample_id_123' ],
+                    file("${projectDir}/modules/local/clean_fasta_headers/TESTDATA/KAUST067_purged.5s.fa")
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def (meta, fastaFile) = process.out.fasta[0]
+            assert meta.id == 'my_special_sample_id_123'
+            assert path(fastaFile).fileName.toString() == 'my_special_sample_id_123.fa'
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 9. Versions.yml structure is valid for every marker gene file
+    // -------------------------------------------------------------------------
+
+    test("versions.yml is valid YAML with correct process name and awk key") {
+        tag "fast"
+        options "-dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'versions_test' ],
+                    file("${projectDir}/modules/local/clean_fasta_headers/TESTDATA/KAUST067_purged.18s.fa")
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            assert process.out.versions.size() == 1
+            def versionsText = path(process.out.versions[0]).text
+
+            // Must be named after the process
+            assert versionsText.contains('CLEAN_FASTA_HEADERS')
+
+            // Must record the awk version key
+            assert versionsText.contains('awk')
+
+            // Version value must be non-empty (awk --version returns a string)
+            // versions.yml looks like:
+            //   "CLEAN_FASTA_HEADERS":
+            //       awk: 5.x.y
+            def versionLine = versionsText.readLines().find { it.trim().startsWith('awk:') }
+            assert versionLine != null : "No 'awk:' line found in versions.yml"
+            def versionValue = versionLine.split(':')[1].trim()
+            assert !versionValue.isEmpty() : "awk version value is empty"
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 10. Line count invariant: output has same number of lines as input
+    //     (the module must not drop or duplicate any lines)
+    // -------------------------------------------------------------------------
+
+    test("line count is preserved: output has same number of lines as input") {
+        tag "fast"
+        options "-dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'linecount_test' ],
+                    file("${projectDir}/modules/local/clean_fasta_headers/TESTDATA/KAUST067_purged.12s.fa")
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def (meta, fastaFile) = process.out.fasta[0]
+
+            def inputLines  = path("${projectDir}/modules/local/clean_fasta_headers/TESTDATA/KAUST067_purged.12s.fa").readLines()
+            def outputLines = path(fastaFile).readLines()
+
+            assert inputLines.size() == outputLines.size() :
+                "Line count mismatch: input has ${inputLines.size()} lines, output has ${outputLines.size()}"
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // =========================================================================
+    // STUB TESTS
+    // =========================================================================
+
+    test("stub | 5S rRNA — output file is created but empty") {
+        tag "stub"
+        tag "fast"
+        options "-stub-run -dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067_5s' ],
+                    file("${projectDir}/modules/local/clean_fasta_headers/TESTDATA/KAUST067_purged.5s.fa")
+                ]
+                """
+            }
+        }
+
+        then {
+            DebugUtils.printTree(process.out)
+
+            assert process.success
+
+            assert process.out.fasta.size() == 1
+            def (meta, fastaFile) = process.out.fasta[0]
+
+            // Meta passthrough intact in stub
+            assert meta.id == 'KAUST067_5s'
+
+            // Stub uses touch — file exists but is empty
+            assert path(fastaFile).fileName.toString() == 'KAUST067_5s.fa'
+            assert path(fastaFile).size() == 0
+
+            // Versions output still emitted by stub
+            assert process.out.versions.size() == 1
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    test("stub | 18S rRNA — correct prefix used in stub output filename") {
+        tag "stub"
+        tag "fast"
+        options "-stub-run -dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'algae_18s_sample' ],
+                    file("${projectDir}/modules/local/clean_fasta_headers/TESTDATA/KAUST067_purged.18s.fa")
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            assert process.out.fasta.size() == 1
+            def (meta, fastaFile) = process.out.fasta[0]
+
+            assert meta.id == 'algae_18s_sample'
+            assert path(fastaFile).fileName.toString() == 'algae_18s_sample.fa'
+            assert path(fastaFile).size() == 0
+
+            assert process.out.versions.size() == 1
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    test("stub | 28S rRNA — versions.yml is present even in stub mode") {
+        tag "stub"
+        tag "fast"
+        options "-stub-run -dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'KAUST067_28s' ],
+                    file("${projectDir}/modules/local/clean_fasta_headers/TESTDATA/KAUST067_purged.28s.fa")
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            assert process.out.fasta.size() == 1
+            def (meta, fastaFile) = process.out.fasta[0]
+
+            assert meta.id == 'KAUST067_28s'
+            assert path(fastaFile).size() == 0
+
+            // Versions channel must be emitted even in stub
+            assert process.out.versions.size() == 1
+            def versionsText = path(process.out.versions[0]).text
+            assert versionsText.contains('CLEAN_FASTA_HEADERS')
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+}
