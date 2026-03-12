@@ -18,6 +18,7 @@ include { BLAST_MAKEBLASTDB                    } from '../modules/nf-core/blast/
 include { BLAST_BLASTN as BLAST_BLASTN_OUTFMT0 } from '../modules/nf-core/blast/blastn/main'
 include { BLAST_BLASTN as BLAST_BLASTN_OUTFMT6 } from '../modules/nf-core/blast/blastn/main'
 include { MOTHUR_CLASSIFY                      } from '../modules/local/mothur_classify/mothur_classify'
+include { APPEND_MOTHUR_TAXONOMY_TO_DB         } from '../modules/local/append_taxonomy_to_db/append_mothur_taxonomy_to_db'
 include { paramsSummaryLog                     } from 'plugin/nf-schema'
 
 /*
