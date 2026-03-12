@@ -1,0 +1,460 @@
+nextflow_process {
+
+    name "Test Process APPEND_MOTHUR_TAXONOMY_TO_DB"
+    script "modules/local/append_taxonomy_to_db/append_mothur_taxonomy_to_db.nf"
+    process "APPEND_MOTHUR_TAXONOMY_TO_DB"
+
+    // TESTDATA files:
+    //   testDB.fasta — 2 FASTA records (EUK1189174, EUK1101676)
+    //   testDB.tax   — 2 taxonomy lines mapping IDs to Fungi;Mirabilomycota;...
+    //
+    // The module uses awk to:
+    //   1. Read taxonomy file → build array: tax[id] = taxonomy_string
+    //   2. Process FASTA file → replace ">id" with ">id__taxonomy_string"
+    //   3. Pass sequence lines unchanged
+
+    // =========================================================================
+    // REAL TESTS
+    // =========================================================================
+
+    // -------------------------------------------------------------------------
+    // 1. Basic functionality: annotate FASTA with taxonomy from tax file
+    // -------------------------------------------------------------------------
+
+    test("annotate test database FASTA with mothur taxonomy") {
+        tag "fast"
+        options "-dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'testDB' ],
+                    file("${projectDir}/modules/local/append_taxonomy_to_db/TESTDATA/testDB.fasta")
+                ]
+                input[1] = file("${projectDir}/modules/local/append_taxonomy_to_db/TESTDATA/testDB.tax")
+                """
+            }
+        }
+
+        then {
+            
+
+            assert process.success
+
+            // Exactly one output tuple
+            assert process.out.fasta.size() == 1
+            def (meta, fastaFile) = process.out.fasta[0]
+
+            // Meta passthrough
+            assert meta.id == 'testDB'
+
+            // Output filename uses the sample id prefix with .annotated.fasta suffix
+            assert path(fastaFile).fileName.toString() == 'testDB.annotated.fasta'
+
+            // File is non-empty
+            assert path(fastaFile).size() > 0
+
+            def lines = path(fastaFile).readLines()
+            def headerLines = lines.findAll { line -> line.startsWith('>') }
+            def seqLines    = lines.findAll { line -> !line.startsWith('>') && !line.isEmpty() }
+
+            // Correct number of records (2 sequences)
+            assert headerLines.size() == 2
+            assert seqLines.size() == 2
+
+            // Both headers should now contain taxonomy annotation (__ separator)
+            headerLines.each { h ->
+                assert h.contains('__') : "Expected taxonomy separator '__' in header: ${h}"
+            }
+
+            // First record annotation
+            // Original: >EUK1189174
+            // Tax:      EUK1189174\tFungi;Mirabilomycota;Mirabilomycota.cl03;
+            // Expected: >EUK1189174__Fungi;Mirabilomycota;Mirabilomycota.cl03;
+            assert headerLines[0] == '>EUK1189174__Fungi;Mirabilomycota;Mirabilomycota.cl03;'
+
+            // Second record annotation
+            assert headerLines[1] == '>EUK1101676__Fungi;Mirabilomycota;Mirabilomycota.cl03;'
+
+            // Sequence lines are unchanged (pure nucleotides)
+            seqLines.each { s ->
+                assert s ==~ /[ACGTacgtNn]+/ : "Sequence line was unexpectedly modified: ${s}"
+            }
+
+            // Versions output is present
+            assert process.out.versions.size() == 1
+            def versionsYml = path(process.out.versions[0])
+            assert versionsYml.text.contains('APPEND_MOTHUR_TAXONOMY_TO_DB')
+            assert versionsYml.text.contains('gawk')
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 2. Verify sequence content is unchanged
+    // -------------------------------------------------------------------------
+
+    test("sequence content remains identical after annotation") {
+        tag "fast"
+        options "-dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'testDB_seq_check' ],
+                    file("${projectDir}/modules/local/append_taxonomy_to_db/TESTDATA/testDB.fasta")
+                ]
+                input[1] = file("${projectDir}/modules/local/append_taxonomy_to_db/TESTDATA/testDB.tax")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def (meta, fastaFile) = process.out.fasta[0]
+
+            // Read original and annotated sequences
+            def originalLines = path("${projectDir}/modules/local/append_taxonomy_to_db/TESTDATA/testDB.fasta").readLines()
+            def annotatedLines = path(fastaFile).readLines()
+
+            def originalSeqs = originalLines.findAll { !it.startsWith('>') && !it.isEmpty() }
+            def annotatedSeqs = annotatedLines.findAll { !it.startsWith('>') && !it.isEmpty() }
+
+            // Same number of sequence lines
+            assert originalSeqs.size() == annotatedSeqs.size()
+
+            // Every sequence line is identical
+            originalSeqs.eachWithIndex { origSeq, idx ->
+                assert origSeq == annotatedSeqs[idx] : "Sequence ${idx} was modified"
+            }
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 3. Verify total line count is preserved (no lines dropped or added)
+    // -------------------------------------------------------------------------
+
+    test("total line count is preserved (headers modified, sequences unchanged)") {
+        tag "fast"
+        options "-dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'testDB_linecount' ],
+                    file("${projectDir}/modules/local/append_taxonomy_to_db/TESTDATA/testDB.fasta")
+                ]
+                input[1] = file("${projectDir}/modules/local/append_taxonomy_to_db/TESTDATA/testDB.tax")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def (meta, fastaFile) = process.out.fasta[0]
+
+            def originalLines = path("${projectDir}/modules/local/append_taxonomy_to_db/TESTDATA/testDB.fasta").readLines()
+            def annotatedLines = path(fastaFile).readLines()
+
+            // Line count must be identical
+            assert originalLines.size() == annotatedLines.size() :
+                "Line count mismatch: original has ${originalLines.size()} lines, annotated has ${annotatedLines.size()}"
+
+            // Header lines modified (longer due to taxonomy)
+            def origHeaders = originalLines.findAll { it.startsWith('>') }
+            def annHeaders = annotatedLines.findAll { it.startsWith('>') }
+            assert origHeaders.size() == annHeaders.size()
+
+            annHeaders.eachWithIndex { h, idx ->
+                assert h.length() > origHeaders[idx].length() : "Header ${idx} was not extended with taxonomy"
+            }
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 4. Meta id is preserved exactly
+    // -------------------------------------------------------------------------
+
+    test("meta.id passthrough preserved with custom sample name") {
+        tag "fast"
+        options "-dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'my_custom_database_v2' ],
+                    file("${projectDir}/modules/local/append_taxonomy_to_db/TESTDATA/testDB.fasta")
+                ]
+                input[1] = file("${projectDir}/modules/local/append_taxonomy_to_db/TESTDATA/testDB.tax")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def (meta, fastaFile) = process.out.fasta[0]
+
+            // Meta id preserved exactly
+            assert meta.id == 'my_custom_database_v2'
+
+            // Output filename uses the custom id
+            assert path(fastaFile).fileName.toString() == 'my_custom_database_v2.annotated.fasta'
+
+            // Taxonomy annotation still applied
+            def headerLines = path(fastaFile).readLines().findAll { it.startsWith('>') }
+            headerLines.each { h ->
+                assert h.contains('__') : "Expected taxonomy separator in header"
+            }
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 5. Versions.yml structure is valid
+    // -------------------------------------------------------------------------
+
+    test("versions.yml contains correct process name and gawk version") {
+        tag "fast"
+        options "-dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'versions_test' ],
+                    file("${projectDir}/modules/local/append_taxonomy_to_db/TESTDATA/testDB.fasta")
+                ]
+                input[1] = file("${projectDir}/modules/local/append_taxonomy_to_db/TESTDATA/testDB.tax")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            assert process.out.versions.size() == 1
+            def versionsText = path(process.out.versions[0]).text
+
+            // Must be named after the process
+            assert versionsText.contains('APPEND_MOTHUR_TAXONOMY_TO_DB')
+
+            // Must record the gawk version key
+            assert versionsText.contains('gawk')
+
+            // Version value must be non-empty
+            def versionLine = versionsText.readLines().find { it.trim().startsWith('gawk:') }
+            assert versionLine != null : "No 'gawk:' line found in versions.yml"
+            def versionValue = versionLine.split(':')[1].trim()
+            assert !versionValue.isEmpty() : "gawk version value is empty"
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 6. Verify both EUK records have correct taxonomy strings
+    // -------------------------------------------------------------------------
+
+    test("both EUK records correctly annotated with Fungi taxonomy") {
+        tag "fast"
+        options "-dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'testDB_both_records' ],
+                    file("${projectDir}/modules/local/append_taxonomy_to_db/TESTDATA/testDB.fasta")
+                ]
+                input[1] = file("${projectDir}/modules/local/append_taxonomy_to_db/TESTDATA/testDB.tax")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def (meta, fastaFile) = process.out.fasta[0]
+            def headerLines = path(fastaFile).readLines().findAll { it.startsWith('>') }
+
+            // Both headers contain Fungi taxonomy
+            assert headerLines[0].contains('Fungi;Mirabilomycota;Mirabilomycota.cl03;')
+            assert headerLines[1].contains('Fungi;Mirabilomycota;Mirabilomycota.cl03;')
+
+            // Both are different EUK IDs
+            assert headerLines[0].contains('EUK1189174')
+            assert headerLines[1].contains('EUK1101676')
+
+            // Both use double underscore separator
+            assert headerLines[0].contains('EUK1189174__')
+            assert headerLines[1].contains('EUK1101676__')
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 7. Verify sequence lengths are realistic (from real data)
+    // -------------------------------------------------------------------------
+
+    test("annotated sequences are long (>1kb) as expected for 18S rRNA") {
+        tag "fast"
+        options "-dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'testDB_seqlength' ],
+                    file("${projectDir}/modules/local/append_taxonomy_to_db/TESTDATA/testDB.fasta")
+                ]
+                input[1] = file("${projectDir}/modules/local/append_taxonomy_to_db/TESTDATA/testDB.tax")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def (meta, fastaFile) = process.out.fasta[0]
+            def seqLines = path(fastaFile).readLines().findAll { !it.startsWith('>') && !it.isEmpty() }
+
+            // Both sequences should be long (18S rRNA is typically >1500 nt)
+            seqLines.each { seq ->
+                assert seq.length() > 1000 : "Unexpectedly short sequence: ${seq.length()} nt (expected >1000 for 18S)"
+            }
+
+            // Both sequences are roughly similar length (both are 18S)
+            def len0 = seqLines[0].length()
+            def len1 = seqLines[1].length()
+            assert Math.abs(len0 - len1) < 500 : "Sequences have very different lengths: ${len0} vs ${len1}"
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    // =========================================================================
+    // STUB TESTS
+    // =========================================================================
+
+    test("stub | output file is created but empty") {
+        tag "stub"
+        tag "fast"
+        options "-stub-run -dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'testDB_stub' ],
+                    file("${projectDir}/modules/local/append_taxonomy_to_db/TESTDATA/testDB.fasta")
+                ]
+                input[1] = file("${projectDir}/modules/local/append_taxonomy_to_db/TESTDATA/testDB.tax")
+                """
+            }
+        }
+
+        then {
+            
+
+            assert process.success
+
+            assert process.out.fasta.size() == 1
+            def (meta, fastaFile) = process.out.fasta[0]
+
+            // Meta passthrough intact in stub
+            assert meta.id == 'testDB_stub'
+
+            // Stub uses touch — file exists but is empty
+            assert path(fastaFile).fileName.toString() == 'testDB_stub.annotated.fasta'
+            assert path(fastaFile).size() == 0
+
+            // Versions output still emitted by stub
+            assert process.out.versions.size() == 1
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    test("stub | correct prefix used in stub output filename") {
+        tag "stub"
+        tag "fast"
+        options "-stub-run -dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'custom_stub_name' ],
+                    file("${projectDir}/modules/local/append_taxonomy_to_db/TESTDATA/testDB.fasta")
+                ]
+                input[1] = file("${projectDir}/modules/local/append_taxonomy_to_db/TESTDATA/testDB.tax")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            assert process.out.fasta.size() == 1
+            def (meta, fastaFile) = process.out.fasta[0]
+
+            assert meta.id == 'custom_stub_name'
+            assert path(fastaFile).fileName.toString() == 'custom_stub_name.annotated.fasta'
+            assert path(fastaFile).size() == 0
+
+            assert process.out.versions.size() == 1
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+    test("stub | versions.yml is present even in stub mode") {
+        tag "stub"
+        tag "fast"
+        options "-stub-run -dump-hashes"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id: 'testDB_versions_stub' ],
+                    file("${projectDir}/modules/local/append_taxonomy_to_db/TESTDATA/testDB.fasta")
+                ]
+                input[1] = file("${projectDir}/modules/local/append_taxonomy_to_db/TESTDATA/testDB.tax")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            assert process.out.fasta.size() == 1
+            def (meta, fastaFile) = process.out.fasta[0]
+
+            assert meta.id == 'testDB_versions_stub'
+            assert path(fastaFile).size() == 0
+
+            // Versions channel must be emitted even in stub
+            assert process.out.versions.size() == 1
+            def versionsText = path(process.out.versions[0]).text
+            assert versionsText.contains('APPEND_MOTHUR_TAXONOMY_TO_DB')
+
+            assert snapshot(process.out).match()
+        }
+    }
+
+}

@@ -19,7 +19,6 @@ process APPEND_MOTHUR_TAXONOMY_TO_DB {
     task.ext.when == null || task.ext.when
 
     script:
-    def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
     awk 'BEGIN{FS="\\t"} \\
@@ -37,7 +36,6 @@ process APPEND_MOTHUR_TAXONOMY_TO_DB {
     """
 
     stub:
-    def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
     touch ${prefix}.annotated.fasta
