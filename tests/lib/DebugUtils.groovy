@@ -35,7 +35,7 @@ class DebugUtils {
                 printTree(v, indent + "  ", false)
             }
         } else if (obj instanceof File || obj instanceof java.nio.file.Path ||
-                   (obj instanceof String && new File(obj).exists())) {
+                  (obj instanceof String && new File(obj).exists())) {
             println "${indent}${GREEN}${obj}${RESET}"
         } else {
             println "${indent}${MAGENTA}${obj}${RESET}"
