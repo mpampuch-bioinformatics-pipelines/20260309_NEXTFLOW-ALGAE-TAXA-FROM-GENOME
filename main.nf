@@ -69,15 +69,22 @@ workflow {
     //
     validateParameters()
 
+    // Ensure at least one input source is provided
+    if (!params.input && !params.marker_genes) {
+        error "ERROR: Please provide at least one of --input (samplesheet with genomes) or --marker_genes (pre-extracted marker gene FASTAs)"
+    }
+
     //
     // Print parameter summary
     //
     log.info paramsSummaryLog(workflow)
 
     //
-    // Create input channel from samplesheet
+    // Create input channel from samplesheet (empty if only marker_genes provided)
     //
-    ch_input = channel.fromList(samplesheetToList(params.input, "assets/schema_input.json"))
+    ch_input = params.input
+        ? channel.fromList(samplesheetToList(params.input, "assets/schema_input.json"))
+        : channel.empty()
 
     //
     // WORKFLOW: Run main workflow
