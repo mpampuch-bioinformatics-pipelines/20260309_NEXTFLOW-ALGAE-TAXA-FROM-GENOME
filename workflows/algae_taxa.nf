@@ -20,6 +20,7 @@ include { BLAST_BLASTN as BLAST_BLASTN_OUTFMT6 } from '../modules/nf-core/blast/
 include { MOTHUR_CLASSIFY                      } from '../modules/local/mothur_classify/mothur_classify'
 include { APPEND_MOTHUR_TAXONOMY_TO_DB         } from '../modules/local/append_taxonomy_to_db/append_mothur_taxonomy_to_db'
 include { paramsSummaryLog                     } from 'plugin/nf-schema'
+include { samplesheetToList                    } from 'plugin/nf-schema'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -34,6 +35,56 @@ workflow ALGAE_TAXA {
     main:
 
     ch_versions = channel.empty()
+
+    //
+    // DIRECT MARKER GENE INPUT
+    //
+    // When params.marker_genes is provided (path or glob to pre-extracted marker
+    // gene FASTA files), these bypass the entire genome extraction subworkflow
+    // (Decompress → Barrnap → Combine GFF → Extract BED → Bedtools → Clean headers → ITSx)
+    // and feed directly into the BLAST + Mothur classification steps.
+    //
+    // The seq_type is inferred from the filename:
+    //   - Files containing "18S" → seq_type = '18S'
+    //   - Files containing "28S" → seq_type = '28S'
+    //   - Files containing "5_8S" or "5.8S" → seq_type = '5_8S'
+    //   - Files containing "ITS1" → seq_type = 'ITS1'
+    //   - Files containing "ITS2" → seq_type = 'ITS2'
+    //
+    if (params.marker_genes) {
+        ch_direct_markers = channel.fromPath(params.marker_genes, checkIfExists: true)
+            .map { fasta ->
+                def name = fasta.name
+                def sample_id = name.replaceAll(/\.(fa|fasta|fna)$/, '')
+                def seq_type = null
+
+                if (name.contains('18S') || name.contains('18s')) {
+                    seq_type = '18S'
+                }
+                else if (name.contains('28S') || name.contains('28s')) {
+                    seq_type = '28S'
+                }
+                else if (name.contains('5_8S') || name.contains('5_8s') || name.contains('5.8S') || name.contains('5.8s')) {
+                    seq_type = '5_8S'
+                }
+                else if (name.contains('ITS1') || name.contains('its1')) {
+                    seq_type = 'ITS1'
+                }
+                else if (name.contains('ITS2') || name.contains('its2')) {
+                    seq_type = 'ITS2'
+                }
+                else {
+                    // Default to 18S if no marker type detected in filename
+                    seq_type = '18S'
+                }
+
+                def meta = [id: sample_id, seq_type: seq_type]
+                [meta, fasta, seq_type]
+            }
+    }
+    else {
+        ch_direct_markers = channel.empty()
+    }
 
     //
     // MODULE: Decompress genome files if compressed
@@ -216,8 +267,10 @@ workflow ALGAE_TAXA {
             .map { meta, fasta -> [meta, fasta, 'ITS2'] }
         def ch_its_for_classification = ch_its1.mix(ch_its2)
 
-        // Combine all sequences for classification
-        def ch_all_seqs = ch_rrna_for_classification.mix(ch_its_for_classification)
+        // Combine all sequences for classification (includes direct marker genes if provided)
+        def ch_all_seqs = ch_rrna_for_classification
+            .mix(ch_its_for_classification)
+            .mix(ch_direct_markers)
 
         // Create database configurations based on sequence type
         def ch_seq_with_dbs = ch_all_seqs
